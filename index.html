@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathIA - Votre Tuteur de Mathématiques</title>
+    <!-- MathJax for beautiful math rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f7fa;
+            --user-message-bg: #4a90e2;
+            --ai-message-bg: #e9eef2;
+            --text-color-light: #ffffff;
+            --text-color-dark: #333333;
+            --container-bg: #ffffff;
+            --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            --border-radius: 12px;
+            --border-color: #e0e5e9;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--secondary-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            color: var(--text-color-dark);
+            overflow: hidden;
+        }
+
+        #sidebar {
+            flex: 0 0 260px;
+            background-color: var(--secondary-color);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease-in-out;
+            z-index: 10;
+        }
+
+        body.sidebar-collapsed #sidebar {
+            margin-left: -261px; /* 260px width + 1px border */
+        }
+
+        #sidebar h1 {
+            font-size: 1.8em;
+            color: var(--primary-color);
+            margin: 0 0 20px 0;
+            text-align: center;
+        }
+        
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        #sidebar-search {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 0.95em;
+            box-sizing: border-box;
+        }
+        
+        #search-results {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 5px;
+        }
+        
+        .search-result-item {
+            display: block;
+            padding: 10px 12px;
+            text-decoration: none;
+            color: #444;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+        
+        .search-result-item:hover {
+            background-color: var(--ai-message-bg);
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .search-result-item strong {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .result-type {
+            font-size: 0.8em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            color: var(--text-color-light);
+        }
+
+        .result-type-lesson { background-color: #5db0d7; }
+        .result-type-quiz { background-color: #5dc2a3; }
+        
+        .no-results {
+             padding: 10px;
+             font-style: italic;
+             color: #888;
+             font-size: 0.9em;
+        }
+
+        #sidebar nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+
+        #sidebar nav ul li a {
+            display: block;
+            padding: 12px 18px;
+            text-decoration: none;
+            color: #555;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+        }
+
+        #sidebar nav ul li a:hover {
+            background-color: var(--ai-message-bg);
+            color: var(--primary-color);
+        }
+
+        #sidebar nav ul li a.active {
+            background-color: var(--primary-color);
+            color: var(--text-color-light);
+            font-weight: 600;
+        }
+
+        #chat-container {
+            flex-grow: 1;
+            background-color: var(--container-bg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative; /* For menu toggle positioning */
+        }
+
+        #menu-toggle {
+            position: absolute;
+            top: 16px;
+            left: 24px;
+            z-index: 100;
+            background-color: transparent;
+            border: none;
+            font-size: 1.8em;
+            cursor: pointer;
+            color: var(--text-color-dark);
+            padding: 0;
+            line-height: 1;
+        }
+
+        #chat-window {
+            flex-grow: 1;
+            padding: 24px;
+            padding-top: 60px; /* Space for the toggle button */
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            align-items: flex-end;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: var(--border-radius);
+            line-height: 1.5;
+        }
+        
+        .message .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-bottom: 5px;
+        }
+
+        .ai-message { align-self: flex-start; }
+        .ai-message .icon { background-color: var(--primary-color); color: var(--text-color-light); margin-right: 12px; }
+        .ai-message .message-content { background-color: var(--ai-message-bg); color: var(--text-color-dark); border-bottom-left-radius: 4px; }
+
+        .user-message { align-self: flex-end; flex-direction: row-reverse; }
+        .user-message .icon { background-color: #78a9e8; color: var(--text-color-light); margin-left: 12px; }
+        .user-message .message-content { background-color: var(--user-message-bg); color: var(--text-color-light); border-bottom-right-radius: 4px; }
+        
+        .message-content strong { color: var(--primary-color); display: block; margin-bottom: 8px; }
+        .message-content code { background-color: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; }
+
+        .lesson-diagram {
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .lesson-diagram svg { width: 160px; height: auto; }
+        
+        .typing-indicator { display: flex; align-items: center; padding: 10px 0; }
+        .typing-indicator .dot { width: 8px; height: 8px; background-color: #ccc; border-radius: 50%; margin: 0 3px; animation: bounce 1.4s infinite ease-in-out both; }
+        .typing-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        .input-wrapper {
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+            padding-top: 12px;
+            background-color: var(--container-bg);
+        }
+
+        #special-chars-toolbar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 24px 10px;
+            flex-wrap: wrap;
+        }
+
+        .char-btn {
+            background-color: var(--secondary-color);
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            color: #555;
+            width: 38px;
+            height: 32px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.2s;
+        }
+        .char-btn:hover { background-color: #e0e0e0; border-color: #ccc; }
+
+        #input-area {
+            padding: 0 24px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        #user-input {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #user-input:focus { border-color: var(--primary-color); }
+
+        #mic-button {
+            background-color: #f0f0f0;
+            color: #555;
+            border: 1px solid #ddd;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex; 
+            justify-content: center;
+            align-items: center;
+        }
+
+        #mic-button:hover {
+            background-color: #e0e0e0;
+        }
+
+        #mic-button.listening {
+            background-color: #ff4d4d;
+            color: white;
+            border-color: #ff4d4d;
+            animation: pulse 1.5s infinite;
+        }
+
+        #mic-button svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        #send-button {
+            background-color: var(--primary-color);
+            color: var(--text-color-light);
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #send-button:hover { background-color: #357ABD; }
+
+        #suggestion-area {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 24px 16px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .suggestion-btn {
+            background-color: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        .suggestion-btn:hover { background-color: var(--primary-color); color: var(--text-color-light); }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 77, 77, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 77, 77, 0);
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <aside id="sidebar">
+        <h1>MathIA</h1>
+        <div class="search-wrapper">
+            <input type="search" id="sidebar-search" placeholder="Rechercher une leçon, un quiz...">
+            <div id="search-results"></div>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#" class="active">Accueil (Chat)</a></li>
+                <li><a href="#">Mon Profil</a></li>
+                <li><a href="#">Historique des leçons</a></li>
+                <li><a href="#">Paramètres</a></li>
+            </ul>
+        </nav>
+    </aside>
+    
+    <main id="chat-container">
+        <button id="menu-toggle" title="Afficher/Masquer le menu" aria-label="Afficher/Masquer le menu">&#9776;</button>
+        <div id="chat-window">
+            <!-- Messages will be appended here -->
+        </div>
+
+        <div class="input-wrapper">
+            <div id="special-chars-toolbar">
+                <button class="char-btn" data-char="√" title="Racine carrée">√</button>
+                <button class="char-btn" data-char="²" title="Carré">x²</button>
+                <button class="char-btn" data-char="^" title="Puissance">xⁿ</button>
+                <button class="char-btn" data-char="π" title="Pi">π</button>
+                <button class="char-btn" data-char="≠" title="Différent de">≠</button>
+                <button class="char-btn" data-char="≈" title="Environ égal">≈</button>
+                <button class="char-btn" data-char="≤" title="Inférieur ou égal">≤</button>
+                <button class="char-btn" data-char="≥" title="Supérieur ou égal">≥</button>
+                <button class="char-btn" data-char="°" title="Degré">°</button>
+            </div>
+            <div id="input-area">
+                <input type="text" id="user-input" placeholder="Posez votre question de maths..." autocomplete="off">
+                <button id="mic-button" aria-label="Utiliser le microphone" title="Utiliser le microphone" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                </button>
+                <button id="send-button" aria-label="Envoyer">
+                    <span>&#10148;</span>
+                </button>
+            </div>
+            <div id="suggestion-area">
+                <button class="suggestion-btn" data-value="Explique-moi le théorème de Pythagore">Explique-moi un concept</button>
+                <button class="suggestion-btn" data-value="Quiz sur les fonctions du second degré">Donne-moi un quiz</button>
+                <button class="suggestion-btn" data-value="Aide-moi sur un exercice">Aide-moi sur un exercice</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const micButton = document.getElementById('mic-button');
+        const suggestionButtons = document.querySelectorAll('.suggestion-btn');
+        const charButtons = document.querySelectorAll('.char-btn');
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarSearch = document.getElementById('sidebar-search');
+        const searchResultsContainer = document.getElementById('search-results');
+
+
+        // --- Application State ---
+        let appState = {
+            mode: 'idle', // 'idle', 'quiz', 'tutor'
+            quiz: {
+                topic: null,
+                questionIndex: 0,
+                score: 0,
+                difficulty: 'medium',
+                questions: [],
+                currentQuestion: null,
+                askedQuestions: []
+            }
+        };
+
+        // --- Simulated Database ---
+        const knowledgeBase = {
+            lessons: {
+                "théorème de pythagore": {
+                    title: "Théorème de Pythagore",
+                    svg: `<div class="lesson-diagram">
+                              <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                                <polygon points="10,110 10,10 110,110" fill="#f0f6ff" stroke="#4a90e2" stroke-width="2"/>
+                                <rect x="10" y="90" width="20" height="20" fill="none" stroke="#4a90e2" stroke-width="1.5" stroke-dasharray="2,2" />
+                                <text x="50" y="118" font-family="inherit" font-size="12px" fill="#333">a</text>
+                                <text x="0" y="65" font-family="inherit" font-size="12px" fill="#333">b</text>
+                                <text x="55" y="70" font-family="inherit" font-size="12px" fill="#333" transform="rotate(-45 60 65)">c</text>
+                              </svg>
+                          </div>`,
+                    definition: "Dans un triangle rectangle, le carré de la longueur de l'hypoténuse (le côté opposé à l'angle droit) est égal à la somme des carrés des longueurs des deux autres côtés.",
+                    formula: "\\(a^2 + b^2 = c^2\\)",
+                    example: "Si un triangle rectangle a des côtés de longueurs \\(a=3\\) et \\(b=4\\), alors l'hypoténuse \\(c\\) se calcule ainsi : \\(3^2 + 4^2 = 9 + 16 = 25\\). Donc, \\(c = \\sqrt{25} = 5\\).",
+                    usage: "Ce théorème est fondamental en géométrie pour calculer des distances, en architecture pour assurer des angles droits, ou même en navigation."
+                },
+                 "fonctions du second degré": {
+                    title: "Fonctions du second degré (ou quadratiques)",
+                     svg: `<div class="lesson-diagram">
+                            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                                <line x1="10" y1="110" x2="110" y2="110" stroke="#aaa" stroke-width="1"/>
+                                <line x1="15" y1="15" x2="15" y2="115" stroke="#aaa" stroke-width="1"/>
+                                <polygon points="110,110 105,107 105,113" fill="#aaa"/>
+                                <polygon points="15,15 12,20 18,20" fill="#aaa"/>
+                                <text x="108" y="105" font-size="8px" fill="#333">x</text>
+                                <text x="20" y="20" font-size="8px" fill="#333">f(x)</text>
+                                <path d="M 30 100 C 40 20, 80 20, 90 100" stroke="#4a90e2" stroke-width="2.5" fill="none"/>
+                                <text x="50" y="100" font-size="8px" fill="#333">Parabole</text>
+                            </svg>
+                        </div>`,
+                    definition: "Une fonction du second degré est une fonction polynomiale de degré 2. Sa représentation graphique est une parabole.",
+                    formula: "\\(f(x) = ax^2 + bx + c\\), avec \\(a \\neq 0\\)",
+                    example: "Pour \\(f(x) = x^2 - 2x - 3\\), la parabole est tournée vers le haut (car \\(a=1 > 0\\)). Les racines (où \\(f(x)=0\\)) sont \\(x=-1\\) et \\(x=3\\).",
+                    usage: "Elles modélisent des trajectoires (lancer de balle), des surfaces, et permettent d'optimiser des problèmes (profit maximal, etc.)."
+                }
+            },
+            quizzes: {
+                "fonctions du second degré": [
+                    { difficulty: 'easy', question: "Pour \\(f(x) = 3x^2 - 5x + 1\\), quelle est la valeur de 'a' ?", answer: "3", explanation: "Le coefficient 'a' est le nombre qui multiplie \\(x^2\\)." },
+                    { difficulty: 'medium', question: "Quelle est la forme de la courbe d'une fonction du second degré ?", answer: "parabole", explanation: "La représentation graphique d'une fonction quadratique est toujours une parabole." },
+                    { difficulty: 'medium', question: "Si le discriminant (\\(\\Delta\\)) est positif, combien de racines réelles l'équation a-t-elle ?", answer: "2", explanation: "Un discriminant positif (\\(\\Delta > 0\\)) indique qu'il y a deux solutions réelles distinctes." },
+                    { difficulty: 'hard', question: "Trouvez le sommet de la parabole \\(f(x) = x^2 - 4x + 5\\). Répondez sous la forme (x,y).", answer: "(2,1)", explanation: "L'abscisse du sommet est \\(-\\frac{b}{2a}\\), soit \\(-\\frac{-4}{2 \\cdot 1} = 2\\). L'ordonnée est \\(f(2) = 2^2 - 4(2) + 5 = 1\\)." },
+                    { difficulty: 'hard', question: "Factorisez \\(x^2 - 5x + 6\\).", answer: "(x-2)(x-3)", explanation: "On cherche deux nombres dont la somme est 5 et le produit est 6. Ces nombres sont 2 et 3." }
+                ],
+                 "théorème de pythagore": [
+                    { difficulty: 'easy', question: "Le théorème de Pythagore s'applique à quel type de triangle ?", answer: "rectangle", explanation: "Le théorème ne s'applique qu'aux triangles rectangles." },
+                    { difficulty: 'medium', question: "Si \\(a=6\\) et \\(b=8\\), que vaut \\(c\\) (l'hypoténuse) ?", answer: "10", explanation: "\\(6^2 + 8^2 = 36 + 64 = 100\\). La racine carrée de 100 est 10." },
+                    { difficulty: 'medium', question: "Le plus long côté d'un triangle rectangle s'appelle...", answer: "hypoténuse", explanation: "L'hypoténuse est toujours le côté opposé à l'angle droit et le plus long." },
+                    { difficulty: 'hard', question: "Un écran 16:9 a une diagonale de 20 pouces. Quelle est approximativement sa largeur ? (Répondez avec un entier)", answer: "17", explanation: "On résout \\((16x)^2 + (9x)^2 = 20^2 \\Rightarrow 337x^2 = 400 \\Rightarrow x \\approx 1.09\\). Largeur = \\(16x \\approx 17.4\\)." },
+                    { difficulty: 'hard', question: "Un triangle avec des côtés de 5, 12 et 13 est-il rectangle ?", answer: "oui", explanation: "Oui, car \\(5^2 + 12^2 = 25 + 144 = 169\\), et \\(13^2 = 169\\). L'égalité \\(a^2+b^2=c^2\\) est vérifiée." }
+                ]
+            }
+        };
+
+        // --- Speech Recognition ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'fr-FR';
+            recognition.interimResults = true;
+            recognition.continuous = false;
+
+            micButton.style.display = 'flex';
+
+            micButton.addEventListener('click', () => {
+                if (isListening) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+
+            recognition.onstart = () => {
+                isListening = true;
+                micButton.classList.add('listening');
+                userInput.placeholder = "Je vous écoute...";
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                micButton.classList.remove('listening');
+                userInput.placeholder = "Posez votre question de maths...";
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Erreur de reconnaissance vocale:', event.error);
+                if(event.error !== 'no-speech' && event.error !== 'aborted') {
+                   addMessage(`Désolé, une erreur est survenue avec la reconnaissance vocale : ${event.error}`, 'ai');
+                }
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0])
+                    .map(result => result.transcript)
+                    .join('');
+      
+                userInput.value = transcript;
+            };
+
+        } else {
+            console.warn("L'API Web Speech n'est pas supportée par ce navigateur.");
+            micButton.style.display = 'none';
+        }
+
+        // --- Functions ---
+        
+        /**
+         * Inserts text at the current cursor position in the input field.
+         * @param {string} text - The character or text to insert.
+         */
+        const insertAtCursor = (text) => {
+            const startPos = userInput.selectionStart;
+            const endPos = userInput.selectionEnd;
+            userInput.value = userInput.value.substring(0, startPos) + text + userInput.value.substring(endPos);
+            const newPos = startPos + text.length;
+            userInput.selectionStart = newPos;
+            userInput.selectionEnd = newPos;
+            userInput.focus();
+        };
+
+        /**
+         * Adds a message to the chat window.
+         * @param {string} text - The message content (can be HTML).
+         * @param {string} sender - 'user' or 'ai'.
+         */
+        const addMessage = (text, sender) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+
+            const icon = document.createElement('div');
+            icon.className = 'icon';
+            icon.textContent = sender === 'ai' ? 'IA' : 'Moi';
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.innerHTML = text;
+
+            messageDiv.appendChild(icon);
+            messageDiv.appendChild(content);
+
+            chatWindow.appendChild(messageDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            if (window.MathJax) {
+                window.MathJax.typesetPromise([messageDiv]).catch((err) => {
+                    console.error('Erreur de rendu MathJax :', err);
+                });
+            }
+        };
+        
+        /**
+         * Simulates AI typing and then displays its response.
+         * @param {string | Function} response - The response text or a function that generates it.
+         * @param {number} delay - Time in ms before the response appears.
+         */
+        const aiRespond = (response, delay = 1000) => {
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'message ai-message';
+            typingIndicator.innerHTML = `<div class="icon">IA</div>
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                    </div>
+                </div>`;
+            chatWindow.appendChild(typingIndicator);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            setTimeout(() => {
+                chatWindow.removeChild(typingIndicator);
+                const responseText = typeof response === 'function' ? response() : response;
+                addMessage(responseText, 'ai');
+            }, delay);
+        };
+        
+        /**
+         * Handles the entire user input process from the main chat input.
+         */
+        const handleUserInput = () => {
+            const query = userInput.value.trim();
+            if (!query) return;
+
+            addMessage(userInput.value, 'user');
+            userInput.value = '';
+            
+            if (appState.mode === 'quiz') {
+                processQuizAnswer(query);
+                return;
+            }
+
+            const lowerCaseQuery = query.toLowerCase();
+            if (lowerCaseQuery.includes('explique') || lowerCaseQuery.includes('concept')) {
+                const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.lessons));
+                if (topic) generateLesson(topic);
+                else aiRespond("De quel concept mathématique aimerais-tu que je te parle ?");
+            } else if (lowerCaseQuery.includes('quiz')) {
+                 const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.quizzes));
+                 if(topic) startQuiz(topic);
+                 else aiRespond("Super ! Sur quel sujet veux-tu être interrogé ? Par exemple : le théorème de Pythagore.");
+            } else if (lowerCaseQuery.includes('exercice') || lowerCaseQuery.includes('aide')) {
+                startTutorSession();
+            } else {
+                aiRespond("Je ne suis pas sûr de comprendre. Tu peux me demander d'expliquer un concept, de te donner un quiz, ou de t'aider sur un exercice.");
+            }
+        };
+        
+        /**
+         * Finds a topic key within a user's query.
+         * @param {string} query - The user's input.
+         * @param {string[]} topics - The list of available topics.
+         * @returns {string|undefined} The matching topic key.
+         */
+        const findTopic = (query, topics) => {
+            return topics.find(topic => query.includes(topic));
+        };
+        
+        /**
+         * Generates and displays a lesson in the chat.
+         * @param {string} topic - The key of the lesson to generate.
+         */
+        const generateLesson = (topic) => {
+            const lesson = knowledgeBase.lessons[topic];
+            if (!lesson) return;
+
+            addMessage(`Ok, parlons du sujet : <strong>${lesson.title}</strong>`, 'ai');
+            
+            let html = '';
+            if (lesson.svg) {
+                html += lesson.svg;
+            }
+            html += `
+                <strong>${lesson.title}</strong>
+                <p><b>Définition :</b> ${lesson.definition}</p>
+                <p><b>Formule :</b> ${lesson.formula}</p>
+                <p><b>Exemple :</b> ${lesson.example}</p>
+                <p><b>Cas d'usage :</b> ${lesson.usage}</p>
+            `;
+            aiRespond(html);
+        };
+        
+        const startTutorSession = () => {
+            appState.mode = 'tutor';
+            aiRespond("Bien sûr, montre-moi l'exercice. Je ne te donnerai pas la réponse, mais je te guiderai. Quelle est la première étape selon toi ?");
+        };
+        
+        /**
+         * Initializes a quiz on a given topic.
+         * @param {string} topic - The key of the quiz to start.
+         */
+        const startQuiz = (topic) => {
+            const questions = knowledgeBase.quizzes[topic];
+            if (!questions) {
+                aiRespond("Désolé, je n'ai pas de quiz sur ce sujet pour le moment.");
+                return;
+            }
+            appState.mode = 'quiz';
+            appState.quiz = {
+                topic,
+                questionIndex: 0,
+                score: 0,
+                difficulty: 'medium',
+                questions: questions,
+                currentQuestion: null,
+                askedQuestions: []
+            };
+            aiRespond(`Parfait, commençons un quiz adaptatif sur : <strong>${topic}</strong>. Bonne chance !`, 500);
+            setTimeout(askNextQuizQuestion, 1500);
+        };
+        
+        /**
+         * Finds the next appropriate quiz question based on current difficulty.
+         * @returns {object|null} The next question object or null if none are available.
+         */
+        const findNextQuestion = () => {
+            const { difficulty, questions, askedQuestions } = appState.quiz;
+            
+            const difficultyLevels = ['easy', 'medium', 'hard'];
+            let potentialQuestions = [];
+
+            // Try current difficulty first
+            potentialQuestions = questions.filter(q => q.difficulty === difficulty && !askedQuestions.includes(q.question));
+
+            // Fallback: try other difficulties if no questions are found at the current level
+            if (potentialQuestions.length === 0) {
+                 const otherLevels = difficultyLevels.filter(level => level !== difficulty);
+                 for (const level of otherLevels) {
+                     potentialQuestions = questions.filter(q => q.difficulty === level && !askedQuestions.includes(q.question));
+                     if (potentialQuestions.length > 0) break;
+                 }
+            }
+            
+            // If still no questions, it means we've asked them all
+            if (potentialQuestions.length === 0) {
+                return null;
+            }
+
+            // Pick a random question from the potential ones
+            const randomIndex = Math.floor(Math.random() * potentialQuestions.length);
+            return potentialQuestions[randomIndex];
+        }
+
+        const askNextQuizQuestion = () => {
+             if (appState.quiz.questionIndex >= 5) { 
+                endQuiz();
+                return;
+             }
+             
+             const nextQuestion = findNextQuestion();
+
+             if (!nextQuestion) {
+                endQuiz(); // No more questions available
+                return;
+             }
+             
+             appState.quiz.currentQuestion = nextQuestion;
+             appState.quiz.askedQuestions.push(nextQuestion.question);
+
+             aiRespond(`<strong>Question ${appState.quiz.questionIndex + 1}/5 (Niveau: ${appState.quiz.difficulty}):</strong> ${nextQuestion.question}`);
+        };
+
+        const processQuizAnswer = (answer) => {
+            const { currentQuestion } = appState.quiz;
+            if (!currentQuestion) return; // Avoid errors if called unexpectedly
+            
+            if (answer.toLowerCase().includes(currentQuestion.answer.toLowerCase())) {
+                appState.quiz.score++;
+                aiRespond("C'est correct ! 👍", 500);
+                // Increase difficulty
+                if (appState.quiz.difficulty === 'easy') appState.quiz.difficulty = 'medium';
+                else if (appState.quiz.difficulty === 'medium') appState.quiz.difficulty = 'hard';
+            } else {
+                aiRespond(`Ce n'est pas tout à fait ça. La bonne réponse était <strong>${currentQuestion.answer}</strong>.<br><em>Explication : ${currentQuestion.explanation}</em>`, 500);
+                // Decrease difficulty
+                if (appState.quiz.difficulty === 'hard') appState.quiz.difficulty = 'medium';
+                else if (appState.quiz.difficulty === 'medium') appState.quiz.difficulty = 'easy';
+            }
+            
+            appState.quiz.questionIndex++;
+            setTimeout(askNextQuizQuestion, 2000);
+        };
+        
+        const endQuiz = () => {
+            const { score, questionIndex } = appState.quiz;
+            let message = `Quiz terminé ! Ton score est de <strong>${score}/${questionIndex}</strong>.`;
+            if (score >= 4) {
+                message += "<br>Excellent travail, tu maîtrises le sujet ! 💪";
+            } else if (score >= 2) {
+                message += "<br>Pas mal du tout ! Continue de t'entraîner. 🙂";
+            } else {
+                message += "<br>Ne te décourage pas, revois la leçon et réessaye ! L'important c'est d'apprendre. 🧠";
+            }
+            
+            aiRespond(message);
+            appState.mode = 'idle';
+            appState.quiz.currentQuestion = null; // Clear current question
+        };
+        
+        /**
+         * Handles user input in the sidebar search field to display results.
+         */
+        const handleSearchInput = () => {
+            const query = sidebarSearch.value.trim();
+            searchResultsContainer.innerHTML = '';
+
+            if (query.length < 2) {
+                return;
+            }
+
+            const lowerCaseQuery = query.toLowerCase();
+
+            const matchingLessons = Object.entries(knowledgeBase.lessons).filter(([key, lesson]) => 
+                key.toLowerCase().includes(lowerCaseQuery) || lesson.title.toLowerCase().includes(lowerCaseQuery)
+            );
+            const matchingQuizzes = Object.keys(knowledgeBase.quizzes).filter(topic => topic.toLowerCase().includes(lowerCaseQuery));
+
+            if (matchingLessons.length === 0 && matchingQuizzes.length === 0) {
+                searchResultsContainer.innerHTML = `<div class="no-results">Aucun résultat trouvé.</div>`;
+                return;
+            }
+            
+            const highlightMatch = (text, query) => {
+                if (!query) return text;
+                // Escape special characters in query for regex
+                const escapedQuery = query.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+                const regex = new RegExp(`(${escapedQuery})`, 'gi');
+                return text.replace(regex, '<strong>$1</strong>');
+            };
+
+            matchingLessons.forEach(([key, lesson]) => {
+                const item = document.createElement('a');
+                item.className = 'search-result-item';
+                item.dataset.lessonTopic = key;
+                item.innerHTML = `${highlightMatch(lesson.title, query)} <span class="result-type result-type-lesson">Leçon</span>`;
+                searchResultsContainer.appendChild(item);
+            });
+            
+            matchingQuizzes.forEach(topic => {
+                const item = document.createElement('a');
+                item.className = 'search-result-item';
+                item.dataset.quizTopic = topic;
+                const displayName = topic.charAt(0).toUpperCase() + topic.slice(1);
+                item.innerHTML = `${highlightMatch(displayName, query)} <span class="result-type result-type-quiz">Quiz</span>`;
+                searchResultsContainer.appendChild(item);
+            });
+        };
+
+        // --- Event Listeners ---
+        menuToggle.addEventListener('click', () => {
+            document.body.classList.toggle('sidebar-collapsed');
+        });
+
+        sendButton.addEventListener('click', handleUserInput);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleUserInput();
+            }
+        });
+
+        suggestionButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                userInput.value = button.dataset.value;
+                handleUserInput();
+            });
+        });
+        
+        charButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const char = button.dataset.char;
+                insertAtCursor(char);
+            });
+        });
+
+        sidebarSearch.addEventListener('input', handleSearchInput);
+        
+        searchResultsContainer.addEventListener('click', (e) => {
+            const target = e.target.closest('.search-result-item');
+            if (!target) return;
+            
+            if (target.dataset.lessonTopic) {
+                generateLesson(target.dataset.lessonTopic);
+            } else if (target.dataset.quizTopic) {
+                startQuiz(target.dataset.quizTopic);
+            }
+
+            // Clear search after selection
+            sidebarSearch.value = '';
+            searchResultsContainer.innerHTML = '';
+            // Close sidebar on mobile after selection for better view
+            if (window.innerWidth < 768) {
+                document.body.classList.add('sidebar-collapsed');
+            }
+        });
+        
+        // --- Initial Message ---
+        aiRespond("Bonjour ! Je suis MathIA, ton assistant personnel pour les mathématiques. Comment puis-je t'aider aujourd'hui ?", 500);
+    });
+    </script>
+</body>
+</html>
