@@ -263,6 +263,21 @@
         }
         .lesson-diagram svg { width: 160px; height: auto; }
         
+        /* Attachment styles in user message */
+        .user-attachment-preview {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .user-attachment-preview img {
+            max-width: 150px;
+            border-radius: 8px;
+        }
+        .user-attachment-preview .file-info {
+            font-style: italic;
+            font-size: 0.9em;
+        }
+
         .typing-indicator { display: flex; align-items: center; padding: 10px 0; }
         .typing-indicator .dot { width: 8px; height: 8px; background-color: var(--typing-dot-color); border-radius: 50%; margin: 0 3px; animation: bounce 1.4s infinite ease-in-out both; }
         .typing-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
@@ -275,6 +290,49 @@
             background-color: var(--container-bg);
             transition: background-color 0.3s, border-color 0.3s;
             position: relative; /* Context for suggestions */
+        }
+
+        /* File Preview Styles */
+        #file-preview-container {
+            padding: 0 24px 10px;
+            display: none; /* Initially hidden */
+        }
+        .file-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background-color: var(--ai-message-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .file-preview img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+        .file-preview .file-info {
+            flex-grow: 1;
+            font-size: 0.9em;
+            color: var(--text-color-dark);
+        }
+        .file-preview .file-name {
+            font-weight: 500;
+            display: block;
+        }
+        .file-preview .file-size {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+        #remove-file-btn {
+            background-color: transparent;
+            border: none;
+            font-size: 1.4em;
+            cursor: pointer;
+            color: var(--button-text);
+            padding: 4px;
+            line-height: 1;
         }
 
         #special-chars-toolbar {
@@ -318,7 +376,7 @@
         }
         #user-input:focus { border-color: var(--primary-color); }
 
-        #mic-button {
+        .icon-btn {
             background-color: var(--button-bg);
             color: var(--button-text);
             border: 1px solid var(--button-border);
@@ -332,9 +390,12 @@
             justify-content: center;
             align-items: center;
         }
-
-        #mic-button:hover {
+        .icon-btn:hover {
             background-color: var(--ai-message-bg);
+        }
+        .icon-btn svg {
+            width: 20px;
+            height: 20px;
         }
 
         #mic-button.listening {
@@ -342,11 +403,6 @@
             color: white;
             border-color: #ff4d4d;
             animation: pulse 1.5s infinite;
-        }
-
-        #mic-button svg {
-            width: 20px;
-            height: 20px;
         }
         
         #send-button {
@@ -584,6 +640,7 @@
 
         <div class="input-wrapper">
              <div id="input-suggestions"></div>
+             <div id="file-preview-container"></div>
             <div id="special-chars-toolbar">
                 <button class="char-btn" data-char="√" title="Racine carrée">√</button>
                 <button class="char-btn" data-char="²" title="Carré">x²</button>
@@ -601,8 +658,13 @@
                 <button class="char-btn" data-char="γ" title="Gamma">γ</button>
             </div>
             <div id="input-area">
+                <button id="attach-file-button" class="icon-btn" aria-label="Joindre un fichier" title="Joindre un fichier">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                </button>
+                <input type="file" id="file-input" hidden accept="image/*,application/pdf">
+
                 <input type="text" id="user-input" placeholder="Posez votre question de maths..." autocomplete="off">
-                <button id="mic-button" aria-label="Utiliser le microphone" title="Utiliser le microphone" style="display: none;">
+                <button id="mic-button" class="icon-btn" aria-label="Utiliser le microphone" title="Utiliser le microphone" style="display: none;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                 </button>
                 <button id="send-button" aria-label="Envoyer">
@@ -626,6 +688,9 @@
         const userInput = document.getElementById('user-input');
         const sendButton = document.getElementById('send-button');
         const micButton = document.getElementById('mic-button');
+        const attachFileButton = document.getElementById('attach-file-button');
+        const fileInput = document.getElementById('file-input');
+        const filePreviewContainer = document.getElementById('file-preview-container');
         const suggestionButtons = document.querySelectorAll('.suggestion-btn');
         const charButtons = document.querySelectorAll('.char-btn');
         const menuToggle = document.getElementById('menu-toggle');
@@ -640,6 +705,7 @@
         let appState = {
             mode: 'idle', // 'idle', 'quiz', 'tutor'
             lessonHistory: [],
+            stagedFile: null, // To hold the file before sending
             quiz: {
                 topic: null,
                 questionIndex: 0,
@@ -815,6 +881,16 @@
                     ul.appendChild(li);
                 });
                 historyView.appendChild(ul);
+
+                // Add click handlers to the newly created history links
+                historyView.querySelectorAll('a[data-topic]').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const topic = link.dataset.topic;
+                        // This function correctly switches back to the chat view and renders the full lesson
+                        generateLesson(topic);
+                    });
+                });
             }
         };
         
@@ -836,8 +912,9 @@
          * Adds a message to the chat window.
          * @param {string} text - The message content (can be HTML).
          * @param {string} sender - 'user' or 'ai'.
+         * @param {object} [attachment=null] - Optional file attachment info.
          */
-        const addMessage = (text, sender) => {
+        const addMessage = (text, sender, attachment = null) => {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
 
@@ -847,7 +924,18 @@
             
             const content = document.createElement('div');
             content.className = 'message-content';
-            content.innerHTML = text;
+            
+            let messageHTML = text;
+            if (attachment) {
+                messageHTML += `<div class="user-attachment-preview">`;
+                if (attachment.type.startsWith('image/')) {
+                    messageHTML += `<img src="${attachment.previewUrl}" alt="Pièce jointe">`;
+                } else {
+                    messageHTML += `<div class="file-info">📎 ${attachment.name}</div>`;
+                }
+                messageHTML += `</div>`;
+            }
+            content.innerHTML = messageHTML;
 
             messageDiv.appendChild(icon);
             messageDiv.appendChild(content);
@@ -891,12 +979,44 @@
         /**
          * Handles the entire user input process from the main chat input.
          */
-        const handleUserInput = () => {
+        const handleUserInput = async () => {
             const query = userInput.value.trim();
-            if (!query) return;
+            const file = appState.stagedFile;
 
-            addMessage(userInput.value, 'user');
+            if (!query && !file) return;
+
+            // Display user message with attachment if present
+            if (file) {
+                 const attachment = {
+                    name: file.name,
+                    type: file.type,
+                    previewUrl: URL.createObjectURL(file)
+                };
+                addMessage(query, 'user', attachment);
+            } else {
+                addMessage(query, 'user');
+            }
+
             userInput.value = '';
+
+            if (file) {
+                // Here you would process the file and send it to the AI
+                // For now, we simulate the AI acknowledging the file
+                const fileData = await fileToBase64(file);
+                console.log('File ready to be sent to AI:', {
+                    fileName: file.name,
+                    mimeType: file.type,
+                    base64Data: fileData.split(',')[1].substring(0, 30) + '...' // Log snippet
+                });
+                
+                aiRespond("J'analyse votre fichier... Un instant.", 800);
+                setTimeout(() => {
+                    aiRespond(`Ok, j'ai bien reçu le fichier "${file.name}". Que souhaitez-vous faire avec ? Par exemple, vous pouvez me demander de résoudre un exercice ou d'expliquer un concept illustré.`);
+                }, 2000);
+
+                clearStagedFile(); // Clear file after sending
+                return;
+            }
             
             if (appState.mode === 'quiz') {
                 processQuizAnswer(query);
@@ -919,7 +1039,7 @@
                  if (topic) {
                     generateLesson(topic)
                  } else {
-                    aiRespond("Je ne suis pas sûr de comprendre. Tu peux me demander d'expliquer un concept, de te donner un quiz, ou de t'aider sur un exercice.");
+                    aiRespond("Je ne suis pas sûr de comprendre. Tu peux me demander d'expliquer un concept, de te donner un quiz, ou de t'aider sur un exercice en joignant un fichier.");
                  }
             }
         };
@@ -970,7 +1090,7 @@
         
         const startTutorSession = () => {
             appState.mode = 'tutor';
-            aiRespond("Bien sûr, montre-moi l'exercice. Je ne te donnerai pas la réponse, mais je te guiderai. Quelle est la première étape selon toi ?");
+            aiRespond("Bien sûr, envoie-moi une photo ou un PDF de l'exercice. Je ne te donnerai pas la réponse, mais je te guiderai. Quelle est la première étape selon toi ?");
         };
         
         /**
@@ -1166,6 +1286,66 @@
                 inputSuggestions.style.display = 'none';
             }
         };
+        
+        // --- File Handling Functions ---
+        const handleFileSelect = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            appState.stagedFile = file;
+            displayFilePreview();
+            
+            // Reset file input to allow selecting the same file again
+            fileInput.value = '';
+        };
+
+        const displayFilePreview = () => {
+            const file = appState.stagedFile;
+            if (!file) return;
+
+            const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+            let previewHTML = '';
+            
+            if (file.type.startsWith('image/')) {
+                const objectURL = URL.createObjectURL(file);
+                previewHTML = `<img src="${objectURL}" alt="Aperçu">`;
+            } else {
+                previewHTML = `<span>📎</span>`; // Generic file icon
+            }
+
+            filePreviewContainer.innerHTML = `
+                <div class="file-preview">
+                    ${previewHTML}
+                    <div class="file-info">
+                        <span class="file-name">${file.name}</span>
+                        <span class="file-size">${fileSize}</span>
+                    </div>
+                    <button id="remove-file-btn" title="Retirer le fichier">&times;</button>
+                </div>`;
+            filePreviewContainer.style.display = 'block';
+
+            document.getElementById('remove-file-btn').addEventListener('click', clearStagedFile);
+        };
+
+        const clearStagedFile = () => {
+            appState.stagedFile = null;
+            filePreviewContainer.innerHTML = '';
+            filePreviewContainer.style.display = 'none';
+        };
+        
+        /**
+         * Reads a file and converts it to a Base64 encoded string.
+         * @param {File} file - The file to convert.
+         * @returns {Promise<string>} A promise that resolves with the Base64 data URL.
+         */
+        const fileToBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        };
 
         // --- Event Listeners ---
         menuToggle.addEventListener('click', () => {
@@ -1179,6 +1359,9 @@
                 handleUserInput();
             }
         });
+
+        attachFileButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
 
         suggestionButtons.forEach(button => {
             button.addEventListener('click', () => {
@@ -1225,15 +1408,6 @@
             e.preventDefault();
             showHistoryView();
         });
-
-        historyView.addEventListener('click', (e) => {
-            e.preventDefault();
-            const target = e.target.closest('a[data-topic]');
-            if (target) {
-                const topic = target.dataset.topic;
-                generateLesson(topic);
-            }
-        });
         
         // --- Input suggestions event listeners ---
         userInput.addEventListener('input', () => {
@@ -1265,7 +1439,7 @@
         });
 
         // --- Initial Message ---
-        aiRespond("Bonjour ! Je suis MathIA, ton assistant personnel pour les mathématiques. Comment puis-je t'aider aujourd'hui ?", 500);
+        aiRespond("Bonjour ! Je suis MathIA, ton assistant personnel pour les mathématiques. Comment puis-je t'aider aujourd'hui ? Tu peux maintenant aussi me joindre une photo ou un PDF de ton exercice !", 500);
     });
     </script>
 </body>
