@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const navHistory = document.getElementById('nav-history') as HTMLAnchorElement;
     const themeToggle = document.getElementById('theme-toggle') as HTMLInputElement;
     const inputSuggestions = document.getElementById('input-suggestions') as HTMLDivElement;
+    const progressBarInner = document.getElementById('progress-bar-inner') as HTMLDivElement;
+    const progressPercentage = document.getElementById('progress-percentage') as HTMLSpanElement;
+
 
     // --- Application State ---
     const loadLessonHistory = (): any[] => {
@@ -55,18 +58,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const loadUserProgress = (): Set<string> => {
+        try {
+            const savedProgress = localStorage.getItem('userProgress');
+            if (savedProgress) {
+                const parsed = JSON.parse(savedProgress);
+                return new Set(Array.isArray(parsed) ? parsed : []);
+            }
+            return new Set();
+        } catch (e) {
+            console.error("Failed to load user progress", e);
+            return new Set();
+        }
+    };
+
+    const saveUserProgress = () => {
+        try {
+            localStorage.setItem('userProgress', JSON.stringify(Array.from(appState.userProgress.masteredTopics)));
+        } catch (e) {
+            console.error("Failed to save user progress", e);
+        }
+    };
+
+
     let appState = {
-        mode: 'idle', // 'idle', 'quiz', 'tutor'
+        mode: 'idle', // 'idle', 'quiz', 'tutor', 'practice'
         lessonHistory: loadLessonHistory(),
         stagedFile: null as File | null,
+        userProgress: {
+            masteredTopics: loadUserProgress()
+        },
         quiz: {
-            topic: null,
+            topic: null as string | null,
             questionIndex: 0,
             score: 0,
             difficulty: 'medium',
-            questions: [],
-            currentQuestion: null,
-            askedQuestions: []
+            questions: [] as any[],
+            currentQuestion: null as any | null,
+            askedQuestions: [] as string[]
+        },
+        practice: {
+            topic: null as string | null,
+            exerciseIndex: 0,
+            exercises: [] as any[],
+            currentExercise: null as any | null,
         }
     };
 
@@ -124,14 +159,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 { difficulty: 'hard', question: "Un écran 16:9 a une diagonale de 20 pouces. Quelle est approximativement sa largeur ? (Répondez avec un entier)", answer: "17", explanation: "On résout \\((16x)^2 + (9x)^2 = 20^2 \\Rightarrow 337x^2 = 400 \\Rightarrow x \\approx 1.09\\). Largeur = \\(16x \\approx 17.4\\)." },
                 { difficulty: 'hard', question: "Un triangle avec des côtés de 5, 12 et 13 est-il rectangle ?", answer: "oui", explanation: "Oui, car \\(5^2 + 12^2 = 25 + 144 = 169\\), et \\(13^2 = 169\\). L'égalité \\(a^2+b^2=c^2\\) est vérifiée." }
             ]
+        },
+        practiceExercises: {
+            "théorème de pythagore": [
+                { problem: "Un triangle rectangle a un côté de 5 cm et un autre de 12 cm. Quelle est la longueur de l'hypoténuse ?" },
+                { problem: "La diagonale d'un carré mesure 10 cm. Quelle est la longueur d'un côté ? (arrondir à deux décimales)" },
+                { problem: "Une échelle de 5m est appuyée contre un mur. Son pied est à 3m du mur. À quelle hauteur sur le mur l'échelle arrive-t-elle ?" }
+            ],
+            "fonctions du second degré": [
+                { problem: "Trouvez les racines de l'équation \\(x^2 - 7x + 10 = 0\\)." },
+                { problem: "Quel est le sommet de la parabole définie par \\(f(x) = -2x^2 + 8x - 5\\) ?" },
+                { problem: "Factorisez l'expression \\(2x^2 + 5x - 3\\)." }
+            ]
         }
     };
 
     const uniqueSuggestions = [...new Set([
         ...Object.values(knowledgeBase.lessons).map(l => l.title),
         ...Object.keys(knowledgeBase.quizzes).map(q => `Quiz sur ${q}`),
+        ...Object.keys(knowledgeBase.practiceExercises).map(p => `Exercices sur ${p}`),
         "Explique-moi le théorème de Pythagore",
         "Aide-moi sur un exercice",
+        "Je veux m'entraîner",
     ])];
     
     // --- Theme Management ---
@@ -205,6 +254,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Functions ---
     
+    const updateProgressBar = () => {
+        const totalTopics = Object.keys(knowledgeBase.quizzes).length;
+        const masteredTopicsCount = appState.userProgress.masteredTopics.size;
+        
+        if (totalTopics === 0) return;
+
+        const percentage = Math.round((masteredTopicsCount / totalTopics) * 100);
+        
+        progressBarInner.style.width = `${percentage}%`;
+        progressPercentage.textContent = `${percentage}% Maîtrisé`;
+    };
+
     const showChatView = () => {
         historyView.style.display = 'none';
         chatWindow.style.display = 'flex';
@@ -381,6 +442,11 @@ document.addEventListener('DOMContentLoaded', () => {
             processQuizAnswer(query);
             return;
         }
+        
+        if (appState.mode === 'practice') {
+            processPracticeAnswer(query);
+            return;
+        }
 
         const lowerCaseQuery = query.toLowerCase();
         if (lowerCaseQuery.includes('explique') || lowerCaseQuery.includes('concept')) {
@@ -391,6 +457,10 @@ document.addEventListener('DOMContentLoaded', () => {
              const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.quizzes));
              if(topic) startQuiz(topic);
              else aiRespond("Super ! Sur quel sujet veux-tu être interrogé ? Par exemple : le théorème de Pythagore.");
+        } else if (lowerCaseQuery.includes('pratiquer') || lowerCaseQuery.includes('entraînement') || lowerCaseQuery.includes('exercices sur')) {
+            const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.practiceExercises));
+            if (topic) startPracticeMode(topic);
+            else aiRespond("Super ! Sur quel sujet veux-tu t'entraîner ? Par exemple : fonctions du second degré.");
         } else if (lowerCaseQuery.includes('exercice') || lowerCaseQuery.includes('aide')) {
             startTutorSession();
         } else {
@@ -398,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
              if (topic) {
                 generateLesson(topic)
              } else {
-                aiRespond("Je ne suis pas sûr de comprendre. Tu peux me demander d'expliquer un concept, de te donner un quiz, ou de t'aider sur un exercice en joignant un fichier.");
+                aiRespond("Je ne suis pas sûr de comprendre. Tu peux me demander d'expliquer un concept, de te donner un quiz, de t'entraîner, ou de t'aider sur un exercice en joignant un fichier.");
              }
         }
     };
@@ -441,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aiRespond("Bien sûr ! Joignez une photo ou un PDF de votre exercice. Dites-moi ensuite ce que vous avez déjà essayé ou ce qui vous bloque, et nous le résoudrons ensemble, étape par étape.");
     };
     
+    // --- Quiz Functions ---
     const startQuiz = (topic: string) => {
         const questions = knowledgeBase.quizzes[topic as keyof typeof knowledgeBase.quizzes];
         if (!questions) {
@@ -524,10 +595,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const endQuiz = () => {
-        const { score, questionIndex } = appState.quiz;
+        const { score, questionIndex, topic } = appState.quiz;
         let message = `Quiz terminé ! Ton score est de <strong>${score}/${questionIndex}</strong>.`;
         if (score >= 4) {
             message += "<br>Excellent travail, tu maîtrises le sujet ! 💪";
+            if (topic) {
+                appState.userProgress.masteredTopics.add(topic);
+                saveUserProgress();
+                updateProgressBar();
+            }
         } else if (score >= 2) {
             message += "<br>Pas mal du tout ! Continue de t'entraîner. 🙂";
         } else {
@@ -537,6 +613,72 @@ document.addEventListener('DOMContentLoaded', () => {
         aiRespond(message);
         appState.mode = 'idle';
         appState.quiz.currentQuestion = null;
+    };
+
+    // --- Practice Mode Functions ---
+    const startPracticeMode = (topic: string) => {
+        const exercises = knowledgeBase.practiceExercises[topic as keyof typeof knowledgeBase.practiceExercises];
+        if (!exercises || exercises.length === 0) {
+            aiRespond("Désolé, je n'ai pas d'exercices de pratique sur ce sujet pour le moment.");
+            return;
+        }
+        appState.mode = 'practice';
+        appState.practice = {
+            topic,
+            exerciseIndex: 0,
+            exercises: [...exercises].sort(() => 0.5 - Math.random()), // Shuffle exercises
+            currentExercise: null,
+        };
+        aiRespond(`Très bien ! Démarrons une session d'entraînement sur : <strong>${topic}</strong>. Fais de ton mieux !`, 500);
+        setTimeout(askNextPracticeExercise, 1500);
+    };
+
+    const askNextPracticeExercise = () => {
+         const { exerciseIndex, exercises } = appState.practice;
+         if (exerciseIndex >= exercises.length) { 
+            endPracticeMode();
+            return;
+         }
+         
+         const nextExercise = exercises[exerciseIndex];
+         appState.practice.currentExercise = nextExercise;
+
+         aiRespond(`<strong>Exercice ${exerciseIndex + 1}/${exercises.length}:</strong> ${nextExercise.problem}`);
+    };
+
+    const getPracticeFeedback = async (problem: string, userAnswer: string): Promise<string> => {
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Évalue la réponse de l'élève. Problème: "${problem}". Réponse de l'élève: "${userAnswer}". Si la réponse est correcte, félicite-le et donne une brève explication. Si elle est incorrecte, ne donne PAS la bonne réponse, mais guide-le avec une question ou une piste pour l'aider à corriger son erreur. Sois encourageant.`,
+                config: {
+                    systemInstruction: "Tu es MathIA, un tuteur de mathématiques encourageant. Ton rôle est de fournir un feedback constructif sur les exercices de pratique.",
+                }
+            });
+            return response.text;
+        } catch (error) {
+            console.error("Error calling Gemini API for practice feedback:", error);
+            return "Désolé, une erreur est survenue. Passons à la suite.";
+        }
+    };
+    
+    const processPracticeAnswer = async (answer: string) => {
+        const { currentExercise } = appState.practice;
+        if (!currentExercise) return;
+
+        const typingIndicator = showTypingIndicator();
+        const feedback = await getPracticeFeedback(currentExercise.problem, answer);
+        hideTypingIndicator(typingIndicator);
+        addMessage(feedback, 'ai');
+
+        appState.practice.exerciseIndex++;
+        setTimeout(askNextPracticeExercise, 2500);
+    };
+    
+    const endPracticeMode = () => {
+        aiRespond("Session d'entraînement terminée ! Excellent travail. Continue comme ça ! 👍");
+        appState.mode = 'idle';
+        appState.practice.currentExercise = null;
     };
     
     const handleSearchInput = () => {
@@ -553,8 +695,9 @@ document.addEventListener('DOMContentLoaded', () => {
             key.toLowerCase().includes(lowerCaseQuery) || lesson.title.toLowerCase().includes(lowerCaseQuery)
         );
         const matchingQuizzes = Object.keys(knowledgeBase.quizzes).filter(topic => topic.toLowerCase().includes(lowerCaseQuery));
+        const matchingPractice = Object.keys(knowledgeBase.practiceExercises).filter(topic => topic.toLowerCase().includes(lowerCaseQuery));
 
-        if (matchingLessons.length === 0 && matchingQuizzes.length === 0) {
+        if (matchingLessons.length === 0 && matchingQuizzes.length === 0 && matchingPractice.length === 0) {
             searchResultsContainer.innerHTML = `<div class="no-results">Aucun résultat trouvé.</div>`;
             return;
         }
@@ -580,6 +723,15 @@ document.addEventListener('DOMContentLoaded', () => {
             item.dataset.quizTopic = topic;
             const displayName = topic.charAt(0).toUpperCase() + topic.slice(1);
             item.innerHTML = `${highlightMatch(displayName, query)} <span class="result-type result-type-quiz">Quiz</span>`;
+            searchResultsContainer.appendChild(item);
+        });
+
+        matchingPractice.forEach(topic => {
+            const item = document.createElement('a');
+            item.className = 'search-result-item';
+            item.dataset.practiceTopic = topic;
+            const displayName = topic.charAt(0).toUpperCase() + topic.slice(1);
+            item.innerHTML = `${highlightMatch(displayName, query)} <span class="result-type result-type-practice">Pratique</span>`;
             searchResultsContainer.appendChild(item);
         });
     };
@@ -709,12 +861,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const lessonTopic = (target as HTMLElement).dataset.lessonTopic;
         const quizTopic = (target as HTMLElement).dataset.quizTopic;
+        const practiceTopic = (target as HTMLElement).dataset.practiceTopic;
 
         if (lessonTopic) {
             generateLesson(lessonTopic);
         } else if (quizTopic) {
             startQuiz(quizTopic);
+        } else if (practiceTopic) {
+            startPracticeMode(practiceTopic);
         }
+
 
         sidebarSearch.value = '';
         searchResultsContainer.innerHTML = '';
@@ -763,4 +919,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial Message ---
     aiRespond("Bonjour ! Je suis MathIA, ton assistant personnel pour les mathématiques. Comment puis-je t'aider aujourd'hui ? Tu peux maintenant aussi me joindre une photo ou un PDF de ton exercice !", 500);
+    updateProgressBar();
 });

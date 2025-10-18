@@ -108,6 +108,43 @@
             margin-top: 5px;
         }
         
+        /* --- Progress Bar Styles --- */
+        .progress-container {
+            margin-bottom: 20px;
+        }
+        .progress-container h3 {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: var(--sidebar-link-color);
+            margin: 0 0 8px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: var(--ai-message-bg);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar-inner {
+            height: 100%;
+            width: 0%; /* Updated by JS */
+            background-color: var(--primary-color);
+            border-radius: 5px;
+            transition: width 0.5s ease-in-out;
+        }
+        .progress-percentage {
+            display: block;
+            text-align: right;
+            font-size: 0.8em;
+            margin-top: 4px;
+            color: var(--sidebar-link-color);
+            font-weight: 500;
+        }
+        /* --- End Progress Bar Styles --- */
+
         .search-result-item {
             display: block;
             padding: 10px 12px;
@@ -141,6 +178,7 @@
 
         .result-type-lesson { background-color: #5db0d7; }
         .result-type-quiz { background-color: #5dc2a3; }
+        .result-type-practice { background-color: #d78d5d; }
         
         .no-results {
              padding: 10px;
@@ -619,6 +657,13 @@
             <input type="search" id="sidebar-search" placeholder="Rechercher une leçon, un quiz...">
             <div id="search-results"></div>
         </div>
+        <div class="progress-container">
+            <h3>Ma Progression</h3>
+            <div class="progress-bar">
+                <div id="progress-bar-inner" class="progress-bar-inner"></div>
+            </div>
+            <span id="progress-percentage" class="progress-percentage">0% Maîtrisé</span>
+        </div>
         <nav>
             <ul>
                 <li><a href="#" id="nav-chat" class="active">Accueil (Chat)</a></li>
@@ -681,7 +726,7 @@
             <div id="suggestion-area">
                 <button class="suggestion-btn" data-value="Explique-moi le théorème de Pythagore">Explique-moi un concept</button>
                 <button class="suggestion-btn" data-value="Quiz sur les fonctions du second degré">Donne-moi un quiz</button>
-                <button class="suggestion-btn" data-value="Aide-moi sur un exercice">Aide-moi sur un exercice</button>
+                <button class="suggestion-btn" data-value="Exercices sur le théorème de Pythagore">S'entraîner sur un sujet</button>
             </div>
         </div>
     </main>
