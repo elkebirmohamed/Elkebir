@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const chatWindow = document.getElementById('chat-window') as HTMLDivElement;
     const historyView = document.getElementById('history-view') as HTMLDivElement;
+    const settingsView = document.getElementById('settings-view') as HTMLDivElement;
     const inputWrapper = document.querySelector('.input-wrapper') as HTMLDivElement;
     const userInput = document.getElementById('user-input') as HTMLInputElement;
     const sendButton = document.getElementById('send-button') as HTMLButtonElement;
@@ -25,14 +26,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionButtons = document.querySelectorAll('.suggestion-btn');
     const charButtons = document.querySelectorAll('.char-btn');
     const menuToggle = document.getElementById('menu-toggle') as HTMLButtonElement;
+    const backToHistoryBtn = document.getElementById('back-to-history-btn') as HTMLButtonElement;
     const sidebarSearch = document.getElementById('sidebar-search') as HTMLInputElement;
     const searchResultsContainer = document.getElementById('search-results') as HTMLDivElement;
     const navChat = document.getElementById('nav-chat') as HTMLAnchorElement;
     const navHistory = document.getElementById('nav-history') as HTMLAnchorElement;
+    const navSettings = document.getElementById('nav-settings') as HTMLAnchorElement;
     const themeToggle = document.getElementById('theme-toggle') as HTMLInputElement;
     const inputSuggestions = document.getElementById('input-suggestions') as HTMLDivElement;
     const progressBarInner = document.getElementById('progress-bar-inner') as HTMLDivElement;
     const progressPercentage = document.getElementById('progress-percentage') as HTMLSpanElement;
+    const learningGoalsList = document.getElementById('learning-goals-list') as HTMLUListElement;
+    const goalContextMenu = document.getElementById('goal-context-menu') as HTMLDivElement;
+    const deleteGoalBtn = document.getElementById('delete-goal-btn') as HTMLLIElement;
+    const historyContextMenu = document.getElementById('history-context-menu') as HTMLDivElement;
+    const deleteHistoryBtn = document.getElementById('delete-history-btn') as HTMLLIElement;
+    const addGoalBtn = document.getElementById('add-goal-btn') as HTMLButtonElement;
+    const addGoalFormContainer = document.getElementById('add-goal-form-container') as HTMLDivElement;
+    const newGoalInput = document.getElementById('new-goal-input') as HTMLInputElement;
+    const saveGoalBtn = document.getElementById('save-goal-btn') as HTMLButtonElement;
 
 
     // --- Application State ---
@@ -41,7 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedHistory = localStorage.getItem('lessonHistory');
             if (savedHistory) {
                 const parsedHistory = JSON.parse(savedHistory);
-                return Array.isArray(parsedHistory) ? parsedHistory : [];
+                // Ensure all items have a unique ID
+                return (Array.isArray(parsedHistory) ? parsedHistory : []).map((item, index) => ({
+                    ...item,
+                    id: item.id || `history-${Date.now()}-${index}`
+                }));
             }
             return [];
         } catch (e) {
@@ -67,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return new Set();
         } catch (e) {
-            console.error("Failed to load user progress", e);
+            console.error("Failed to load user progress from localStorage", e);
             return new Set();
         }
     };
@@ -76,7 +92,29 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             localStorage.setItem('userProgress', JSON.stringify(Array.from(appState.userProgress.masteredTopics)));
         } catch (e) {
-            console.error("Failed to save user progress", e);
+            console.error("Failed to save user progress to localStorage", e);
+        }
+    };
+
+    const loadLearningGoals = (): { topic: string; title: string }[] => {
+        try {
+            const savedGoals = localStorage.getItem('learningGoals');
+            if (savedGoals) {
+                const parsed = JSON.parse(savedGoals);
+                return Array.isArray(parsed) ? parsed : [];
+            }
+            return [];
+        } catch (e) {
+            console.error("Failed to load learning goals from localStorage", e);
+            return [];
+        }
+    };
+
+    const saveLearningGoals = () => {
+        try {
+            localStorage.setItem('learningGoals', JSON.stringify(appState.learningGoals));
+        } catch (e) {
+            console.error("Failed to save learning goals to localStorage", e);
         }
     };
 
@@ -84,7 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let appState = {
         mode: 'idle', // 'idle', 'quiz', 'tutor', 'practice'
         lessonHistory: loadLessonHistory(),
+        learningGoals: loadLearningGoals(),
         stagedFile: null as File | null,
+        currentChat: [] as { sender: 'user' | 'ai'; text: string; attachment?: any }[],
+        isViewingHistory: false,
         userProgress: {
             masteredTopics: loadUserProgress()
         },
@@ -110,15 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
         lessons: {
             "théorème de pythagore": {
                 title: "Théorème de Pythagore",
-                svg: `<div class="lesson-diagram">
-                              <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                                <polygon points="10,110 10,10 110,110" fill="#f0f6ff" stroke="#4a90e2" stroke-width="2"/>
-                                <rect x="10" y="90" width="20" height="20" fill="none" stroke="#4a90e2" stroke-width="1.5" stroke-dasharray="2,2" />
-                                <text x="50" y="118" font-family="inherit" font-size="12px" fill="var(--text-color-dark)">a</text>
-                                <text x="0" y="65" font-family="inherit" font-size="12px" fill="var(--text-color-dark)">b</text>
-                                <text x="55" y="70" font-family="inherit" font-size="12px" fill="var(--text-color-dark)" transform="rotate(-45 60 65)">c</text>
-                              </svg>
-                          </div>`,
                 definition: "Dans un triangle rectangle, le carré de la longueur de l'hypoténuse (le côté opposé à l'angle droit) est égal à la somme des carrés des longueurs des deux autres côtés.",
                 formula: "\\(a^2 + b^2 = c^2\\)",
                 example: "Si un triangle rectangle a des côtés de longueurs \\(a=3\\) et \\(b=4\\), alors l'hypoténuse \\(c\\) se calcule ainsi : \\(3^2 + 4^2 = 9 + 16 = 25\\). Donc, \\(c = \\sqrt{25} = 5\\).",
@@ -126,18 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
             },
              "fonctions du second degré": {
                 title: "Fonctions du second degré (ou quadratiques)",
-                 svg: `<div class="lesson-diagram">
-                            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                                <line x1="10" y1="110" x2="110" y2="110" stroke="#aaa" stroke-width="1"/>
-                                <line x1="15" y1="15" x2="15" y2="115" stroke="#aaa" stroke-width="1"/>
-                                <polygon points="110,110 105,107 105,113" fill="#aaa"/>
-                                <polygon points="15,15 12,20 18,20" fill="#aaa"/>
-                                <text x="108" y="105" font-size="8px" fill="var(--text-color-dark)">x</text>
-                                <text x="20" y="20" font-size="8px" fill="var(--text-color-dark)">f(x)</text>
-                                <path d="M 30 100 C 40 20, 80 20, 90 100" stroke="#4a90e2" stroke-width="2.5" fill="none"/>
-                                <text x="50" y="100" font-size="8px" fill="var(--text-color-dark)">Parabole</text>
-                            </svg>
-                        </div>`,
                 definition: "Une fonction du second degré est une fonction polynomiale de degré 2. Sa représentation graphique est une parabole.",
                 formula: "\\(f(x) = ax^2 + bx + c\\), avec \\(a \\neq 0\\)",
                 example: "Pour \\(f(x) = x^2 - 2x - 3\\), la parabole est tournée vers le haut (car \\(a=1 > 0\\)). Les racines (où \\(f(x)=0\\)) sont \\(x=-1\\) et \\(x=3\\).",
@@ -170,6 +190,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 { problem: "Trouvez les racines de l'équation \\(x^2 - 7x + 10 = 0\\)." },
                 { problem: "Quel est le sommet de la parabole définie par \\(f(x) = -2x^2 + 8x - 5\\) ?" },
                 { problem: "Factorisez l'expression \\(2x^2 + 5x - 3\\)." }
+            ]
+        },
+        interactiveExercises: {
+            "théorème de pythagore": [
+                {
+                    type: 'multiple-choice',
+                    question: "Dans un triangle rectangle, le côté le plus long s'appelle...",
+                    options: ["L'hypoténuse", "La cathète", "La médiane"],
+                    answer: "L'hypoténuse",
+                    explanation: "L'hypoténuse est toujours opposée à l'angle droit et est le côté le plus long."
+                },
+                {
+                    type: 'calculation',
+                    question: "Si a=3 et b=4, que vaut c (l'hypoténuse) ?",
+                    answer: "5",
+                    explanation: "D'après le théorème, c² = a² + b² = 3² + 4² = 9 + 16 = 25. Donc, c = √25 = 5."
+                }
+            ],
+            "fonctions du second degré": [
+                 {
+                    type: 'fill-in-the-blank',
+                    question: "La représentation graphique d'une fonction du second degré est une ___.",
+                    answer: "parabole",
+                    explanation: "Les fonctions quadratiques, de la forme f(x) = ax² + bx + c, ont toujours une parabole comme courbe représentative."
+                },
+                {
+                    type: 'multiple-choice',
+                    question: "Si le coefficient 'a' de f(x) = ax² + bx + c est positif, la parabole est tournée vers...",
+                    options: ["Le haut", "Le bas", "La gauche"],
+                    answer: "Le haut",
+                    explanation: "Un 'a' positif signifie que la parabole s'ouvre vers le haut (elle 'sourit')."
+                }
             ]
         }
     };
@@ -266,43 +318,175 @@ document.addEventListener('DOMContentLoaded', () => {
         progressPercentage.textContent = `${percentage}% Maîtrisé`;
     };
 
-    const showChatView = () => {
+    const renderLearningGoals = () => {
+        learningGoalsList.innerHTML = '';
+        if (appState.learningGoals.length === 0) {
+            learningGoalsList.innerHTML = `<li class="no-goals">Aucun objectif défini.</li>`;
+            return;
+        }
+
+        appState.learningGoals.forEach(goal => {
+            const isCompleted = appState.userProgress.masteredTopics.has(goal.topic);
+            const li = document.createElement('li');
+            li.className = `goal-item ${isCompleted ? 'completed' : ''}`;
+            li.dataset.topic = goal.topic;
+            li.title = `Travailler sur : ${goal.title}`;
+            
+            const icon = isCompleted ? '✅' : '🎯';
+            li.innerHTML = `<span class="icon">${icon}</span> <span>${goal.title}</span>`;
+            learningGoalsList.appendChild(li);
+        });
+    };
+
+    const setLearningGoal = (topic: string) => {
+        if (appState.learningGoals.some(goal => goal.topic === topic)) {
+            addMessage("Cet objectif est déjà dans votre liste.", 'ai');
+            return;
+        }
+
+        const lesson = knowledgeBase.lessons[topic as keyof typeof knowledgeBase.lessons];
+        if (lesson) {
+            appState.learningGoals.push({ topic, title: lesson.title });
+            saveLearningGoals();
+            renderLearningGoals();
+            addMessage(`Super ! J'ai ajouté "<strong>${lesson.title}</strong>" à tes objectifs d'apprentissage.`, 'ai');
+        }
+    };
+    
+    const addCustomLearningGoal = (title: string) => {
+        const normalizedTitle = title.trim();
+        if (!normalizedTitle) return;
+
+        if (appState.learningGoals.some(goal => goal.title.toLowerCase() === normalizedTitle.toLowerCase())) {
+            // Silently ignore or show a small visual cue instead of a chat message
+            newGoalInput.style.borderColor = 'red';
+            setTimeout(() => { newGoalInput.style.borderColor = '' }, 1000);
+            return;
+        }
+
+        // Create a unique topic key from the title to avoid collisions
+        const topicKey = `custom-${normalizedTitle.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+        
+        appState.learningGoals.push({ topic: topicKey, title: normalizedTitle });
+        saveLearningGoals();
+        renderLearningGoals();
+        // Optional: confirm with a chat message if the chat view is active
+        // addMessage(`J'ai ajouté "<strong>${normalizedTitle}</strong>" à tes objectifs. Clique dessus pour commencer !`, 'ai');
+    };
+
+    const deleteLearningGoal = (topic: string) => {
+        appState.learningGoals = appState.learningGoals.filter(goal => goal.topic !== topic);
+        saveLearningGoals();
+        renderLearningGoals();
+        // Optional: add a confirmation message in the chat
+        // addMessage(`L'objectif a été supprimé.`, 'ai');
+    };
+    
+    const deleteHistoryItem = (id: string) => {
+        appState.lessonHistory = appState.lessonHistory.filter(item => item.id !== id);
+        saveLessonHistory();
+        showHistoryView(); // Re-render the view
+    };
+
+    const saveCurrentChatIfNeeded = async () => {
+        // Only save if the chat is not empty and is a "new" chat, not a historical one.
+        if (appState.currentChat.length > 1 && !appState.isViewingHistory) { // > 1 to avoid saving empty chats with only the greeting
+            const typingIndicator = showTypingIndicator();
+            try {
+                const chatHistoryText = appState.currentChat.map(m => `${m.sender}: ${m.text}`).join('\n');
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: `Résume cette conversation en 5 mots maximum pour en faire un titre : \n\n${chatHistoryText}`,
+                });
+
+                const title = response.text.trim().replace(/^"|"$/g, ''); // Remove quotes
+                if (title) {
+                     appState.lessonHistory.push({
+                        id: `chat-${Date.now()}`,
+                        type: 'chat',
+                        title: title,
+                        content: [...appState.currentChat]
+                    });
+                    saveLessonHistory();
+                }
+            } catch (error) {
+                console.error("Error generating title for chat:", error);
+                 appState.lessonHistory.push({
+                    id: `chat-${Date.now()}`,
+                    type: 'chat',
+                    title: "Conversation sauvegardée",
+                    content: [...appState.currentChat]
+                });
+                saveLessonHistory();
+            } finally {
+                 hideTypingIndicator(typingIndicator);
+            }
+        }
+    };
+    
+    const switchToChatView = () => {
         historyView.style.display = 'none';
+        settingsView.style.display = 'none';
         chatWindow.style.display = 'flex';
         inputWrapper.style.display = 'block';
-
         document.querySelector('#sidebar nav a.active')?.classList.remove('active');
         navChat.classList.add('active');
     };
 
+    const showChatView = async () => {
+        await saveCurrentChatIfNeeded();
+
+        appState.isViewingHistory = false;
+        switchToChatView();
+        backToHistoryBtn.style.display = 'none';
+
+        appState.currentChat = [];
+        chatWindow.innerHTML = '';
+        addMessage("Bonjour ! Je suis MathIA. Comment puis-je t'aider avec les mathématiques aujourd'hui ?", 'ai');
+    };
+
     const showHistoryView = () => {
         chatWindow.style.display = 'none';
+        settingsView.style.display = 'none';
         inputWrapper.style.display = 'none';
         historyView.style.display = 'block';
-
+        backToHistoryBtn.style.display = 'none';
+    
         document.querySelector('#sidebar nav a.active')?.classList.remove('active');
         navHistory.classList.add('active');
-
-        historyView.innerHTML = `<h2>Historique des leçons consultées</h2>`;
+    
+        historyView.innerHTML = `<h2>Historique</h2>`;
         if (appState.lessonHistory.length === 0) {
-            historyView.innerHTML += `<p class="empty-history">Vous n'avez pas encore consulté de leçons.</p>`;
+            historyView.innerHTML += `<p class="empty-history">Votre historique est vide.</p>`;
         } else {
             const ul = document.createElement('ul');
             appState.lessonHistory.slice().reverse().forEach((item: any) => {
                 const li = document.createElement('li');
-                li.innerHTML = `<a href="#" data-topic="${item.topic}">${item.title}</a>`;
+                const historyId = item.id || `topic-${item.topic}`; // Fallback for old data without id
+                if (item.type === 'chat') {
+                    li.innerHTML = `<a href="#" data-history-id="${historyId}" data-chat-id="${item.id}" class="history-item">
+                                        <span class="history-icon">💬</span> ${item.title}
+                                    </a>`;
+                } else {
+                    li.innerHTML = `<a href="#" data-history-id="${historyId}" data-topic="${item.topic}" class="history-item">
+                                        <span class="history-icon">📖</span> ${item.title}
+                                    </a>`;
+                }
                 ul.appendChild(li);
             });
             historyView.appendChild(ul);
-
-            historyView.querySelectorAll('a[data-topic]').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const topic = (e.currentTarget as HTMLAnchorElement).dataset.topic;
-                    if (topic) generateLesson(topic);
-                });
-            });
         }
+    };
+
+    const showSettingsView = () => {
+        chatWindow.style.display = 'none';
+        historyView.style.display = 'none';
+        inputWrapper.style.display = 'none';
+        settingsView.style.display = 'block';
+        backToHistoryBtn.style.display = 'none';
+
+        document.querySelector('#sidebar nav a.active')?.classList.remove('active');
+        navSettings.classList.add('active');
     };
     
     const insertAtCursor = (text: string) => {
@@ -316,6 +500,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const addMessage = (text: string, sender: 'user' | 'ai', attachment: any = null) => {
+        appState.currentChat.push({ sender, text, attachment });
+        
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}-message`;
 
@@ -343,6 +529,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chatWindow.appendChild(messageDiv);
         chatWindow.scrollTop = chatWindow.scrollHeight;
+
+        const interactiveModule = content.querySelector('[data-interactive-module]');
+        if (interactiveModule && interactiveModule instanceof HTMLElement) {
+            const moduleType = interactiveModule.dataset.interactiveModule;
+            if (moduleType === 'pythagore') {
+                initPythagorasInteractive(interactiveModule);
+            } else if (moduleType === 'parabole') {
+                initParabolaInteractive(interactiveModule);
+            }
+        }
 
         if (window.MathJax) {
             window.MathJax.typesetPromise([messageDiv]).catch((err: any) => {
@@ -464,355 +660,593 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (lowerCaseQuery.includes('exercice') || lowerCaseQuery.includes('aide')) {
             startTutorSession();
         } else {
-             const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.lessons));
-             if (topic) {
-                generateLesson(topic)
-             } else {
-                aiRespond("Je ne suis pas sûr de comprendre. Tu peux me demander d'expliquer un concept, de te donner un quiz, de t'entraîner, ou de t'aider sur un exercice en joignant un fichier.");
+             const topic = findTopic(lowerCaseQuery, [...Object.keys(knowledgeBase.lessons), ...Object.keys(knowledgeBase.quizzes)]);
+             if(topic) generateLesson(topic);
+             else {
+                 const typingIndicator = showTypingIndicator();
+                 try {
+                     const response = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash',
+                        contents: query,
+                        config: {
+                           systemInstruction: "Tu es MathIA, un tuteur de mathématiques. Réponds aux questions de manière claire et concise. Utilise MathJax pour les formules (ex: \\(x^2\\)).",
+                        }
+                     });
+                     hideTypingIndicator(typingIndicator);
+                     addMessage(response.text, 'ai');
+                 } catch (error) {
+                     console.error("Error calling Gemini API:", error);
+                     hideTypingIndicator(typingIndicator);
+                     addMessage("Désolé, je n'ai pas pu traiter ta demande. Peux-tu reformuler ?", 'ai');
+                 }
              }
         }
     };
     
-    const findTopic = (query: string, topics: string[]) => {
-        return topics.find(topic => query.includes(topic));
-    };
-    
-    const generateLesson = (topic: string) => {
-        const lesson = knowledgeBase.lessons[topic as keyof typeof knowledgeBase.lessons];
-        if (!lesson) return;
-
-        if (!appState.lessonHistory.some((item: any) => item.topic === topic)) {
-            appState.lessonHistory.push({ topic: topic, title: lesson.title, formula: lesson.formula });
-            saveLessonHistory();
+    const findTopic = (query: string, availableTopics: string[]): string | null => {
+        const lowerQuery = query.toLowerCase();
+        for (const topic of availableTopics) {
+            if (lowerQuery.includes(topic)) {
+                return topic;
+            }
         }
-
-        if (historyView.style.display !== 'none') {
-            showChatView();
-        }
-
-        addMessage(`Ok, parlons du sujet : <strong>${lesson.title}</strong>`, 'ai');
-        
-        let html = '';
-        if (lesson.svg) {
-            html += lesson.svg;
-        }
-        html += `
-            <strong>${lesson.title}</strong>
-            <p><b>Définition :</b> ${lesson.definition}</p>
-            <p><b>Formule :</b> ${lesson.formula}</p>
-            <p><b>Exemple :</b> ${lesson.example}</p>
-            <p><b>Cas d'usage :</b> ${lesson.usage}</p>
-        `;
-        aiRespond(html);
+        return null;
     };
     
     const startTutorSession = () => {
         appState.mode = 'tutor';
-        aiRespond("Bien sûr ! Joignez une photo ou un PDF de votre exercice. Dites-moi ensuite ce que vous avez déjà essayé ou ce qui vous bloque, et nous le résoudrons ensemble, étape par étape.");
+        addMessage("Bien sûr ! Montre-moi une photo de ton exercice ou décris-le moi. Je vais te guider.", 'ai');
+    };
+
+    const getPythagorasInteractiveHTML = (): string => {
+        return `
+        <div class="interactive-diagram" data-interactive-module="pythagore">
+          <div class="lesson-diagram">
+              <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                <polygon id="pythagoras-triangle" points="10,110 50,110 10,70" fill="#f0f6ff" stroke="#4a90e2" stroke-width="2"/>
+                <text id="pythagoras-label-a" x="25" y="118" font-family="inherit" font-size="10px" fill="var(--text-color-dark)">a=4</text>
+                <text id="pythagoras-label-b" x="2" y="90" font-family="inherit" font-size="10px" fill="var(--text-color-dark)">b=4</text>
+                <text id="pythagoras-label-c" x="25" y="85" font-family="inherit" font-size="10px" fill="var(--text-color-dark)" transform="rotate(-45 30 80)">c=5.66</text>
+              </svg>
+          </div>
+          <div class="formula-display" id="pythagoras-formula">\\(4^2 + 4^2 = 5.66^2\\)</div>
+          <div class="interactive-controls">
+            <div class="control-group">
+              <label>Côté a: <span class="value-display" id="pythagoras-value-a">4</span></label>
+              <input type="range" id="pythagoras-slider-a" min="1" max="10" value="4" step="0.5">
+            </div>
+            <div class="control-group">
+              <label>Côté b: <span class="value-display" id="pythagoras-value-b">4</span></label>
+              <input type="range" id="pythagoras-slider-b" min="1" max="10" value="4" step="0.5">
+            </div>
+          </div>
+        </div>`;
+    };
+
+    const getParabolaInteractiveHTML = (): string => {
+        return `
+        <div class="interactive-diagram" data-interactive-module="parabole">
+          <div class="lesson-diagram">
+              <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                <line x1="10" y1="60" x2="110" y2="60" stroke="#aaa" stroke-width="1"/>
+                <line x1="60" y1="10" x2="60" y2="110" stroke="#aaa" stroke-width="1"/>
+                <polygon points="110,60 105,57 105,63" fill="#aaa"/>
+                <polygon points="60,10 57,15 63,15" fill="#aaa"/>
+                <text x="108" y="55" font-size="8px" fill="var(--text-color-dark)">x</text>
+                <text x="65" y="15" font-size="8px" fill="var(--text-color-dark)">y</text>
+                <path id="parabola-path" d="M 10 110 Q 60 10, 110 110" stroke="#4a90e2" stroke-width="2.5" fill="none"/>
+              </svg>
+          </div>
+          <div class="formula-display" id="parabola-formula">\\(f(x) = 1.0x^2 + 0.0x + 0.0\\)</div>
+          <div class="interactive-controls">
+            <div class="control-group">
+              <label>a: <span class="value-display" id="parabola-value-a">1.0</span></label>
+              <input type="range" id="parabola-slider-a" min="-2" max="2" value="1" step="0.1">
+            </div>
+            <div class="control-group">
+              <label>b: <span class="value-display" id="parabola-value-b">0.0</span></label>
+              <input type="range" id="parabola-slider-b" min="-5" max="5" value="0" step="0.25">
+            </div>
+            <div class="control-group">
+              <label>c: <span class="value-display" id="parabola-value-c">0.0</span></label>
+              <input type="range" id="parabola-slider-c" min="-10" max="10" value="0" step="0.5">
+            </div>
+          </div>
+        </div>`;
     };
     
-    // --- Quiz Functions ---
-    const startQuiz = (topic: string) => {
-        const questions = knowledgeBase.quizzes[topic as keyof typeof knowledgeBase.quizzes];
-        if (!questions) {
-            aiRespond("Désolé, je n'ai pas de quiz sur ce sujet pour le moment.");
+    const initPythagorasInteractive = (container: HTMLElement) => {
+        const sliderA = container.querySelector('#pythagoras-slider-a') as HTMLInputElement;
+        const sliderB = container.querySelector('#pythagoras-slider-b') as HTMLInputElement;
+        const valueA = container.querySelector('#pythagoras-value-a') as HTMLSpanElement;
+        const valueB = container.querySelector('#pythagoras-value-b') as HTMLSpanElement;
+        const triangle = container.querySelector('#pythagoras-triangle') as SVGPolygonElement;
+        const labelA = container.querySelector('#pythagoras-label-a') as SVGTextElement;
+        const labelB = container.querySelector('#pythagoras-label-b') as SVGTextElement;
+        const labelC = container.querySelector('#pythagoras-label-c') as SVGTextElement;
+        const formulaDisplay = container.querySelector('#pythagoras-formula') as HTMLDivElement;
+    
+        if (!sliderA || !triangle) return; // Element not found, exit
+    
+        const update = () => {
+            const a = parseFloat(sliderA.value);
+            const b = parseFloat(sliderB.value);
+            const c = Math.sqrt(a * a + b * b);
+    
+            valueA.textContent = a.toString();
+            valueB.textContent = b.toString();
+            
+            const scale = 10;
+            const p1 = { x: 10, y: 110 };
+            const p2 = { x: 10 + a * scale, y: 110 };
+            const p3 = { x: 10, y: 110 - b * scale };
+    
+            triangle.setAttribute('points', `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`);
+    
+            labelA.textContent = `a=${a}`;
+            labelA.setAttribute('x', `${p1.x + (a * scale) / 2 - 5}`);
+            labelA.setAttribute('y', `${p1.y + 8}`);
+    
+            labelB.textContent = `b=${b}`;
+            labelB.setAttribute('x', `${p1.x - 8}`);
+            labelB.setAttribute('y', `${p1.y - (b * scale) / 2 + 5}`);
+    
+            const cFormatted = c.toFixed(2);
+            labelC.textContent = `c=${cFormatted}`;
+            const cLabelX = (p2.x + p3.x) / 2;
+            const cLabelY = (p2.y + p3.y) / 2;
+            const angle = -Math.atan(b/a) * (180/Math.PI);
+            labelC.setAttribute('transform', `translate(${cLabelX}, ${cLabelY}) rotate(${angle}) translate(10, -5)`);
+    
+            formulaDisplay.textContent = `\\(${a}^2 + ${b}^2 = ${cFormatted}^2\\)`;
+            if (window.MathJax) {
+                window.MathJax.typesetPromise([formulaDisplay]);
+            }
+        };
+        
+        sliderA.addEventListener('input', update);
+        sliderB.addEventListener('input', update);
+        update();
+    };
+
+    const initParabolaInteractive = (container: HTMLElement) => {
+        const sliderA = container.querySelector('#parabola-slider-a') as HTMLInputElement;
+        const sliderB = container.querySelector('#parabola-slider-b') as HTMLInputElement;
+        const sliderC = container.querySelector('#parabola-slider-c') as HTMLInputElement;
+        const valueA = container.querySelector('#parabola-value-a') as HTMLSpanElement;
+        const valueB = container.querySelector('#parabola-value-b') as HTMLSpanElement;
+        const valueC = container.querySelector('#parabola-value-c') as HTMLSpanElement;
+        const path = container.querySelector('#parabola-path') as SVGPathElement;
+        const formulaDisplay = container.querySelector('#parabola-formula') as HTMLDivElement;
+        
+        if (!sliderA || !path) return;
+    
+        const update = () => {
+            const a = parseFloat(sliderA.value);
+            const b = parseFloat(sliderB.value);
+            const c = parseFloat(sliderC.value);
+    
+            valueA.textContent = a.toFixed(1);
+            valueB.textContent = b.toFixed(1);
+            valueC.textContent = c.toFixed(1);
+    
+            const viewboxWidth = 120;
+            const viewboxHeight = 120;
+            const originX = viewboxWidth / 2; // SVG x for math x=0
+            const originY = viewboxHeight / 2; // SVG y for math y=0
+            const scale = 5;
+    
+            const pathPoints = [];
+            const xMin = -12;
+            const xMax = 12;
+    
+            for (let mathX = xMin; mathX <= xMax; mathX += 0.2) {
+                 // If a is very close to 0, it's a line
+                const mathY = (Math.abs(a) < 0.05) 
+                    ? b * mathX + c 
+                    : a * mathX * mathX + b * mathX + c;
+    
+                const svgX = originX + mathX * scale;
+                const svgY = originY - mathY * scale;
+                
+                // clip to viewbox
+                if (svgY > 5 && svgY < viewboxHeight - 5) {
+                    pathPoints.push([svgX.toFixed(2), svgY.toFixed(2)]);
+                }
+            }
+    
+            if (pathPoints.length > 1) {
+                 const pathData = 'M ' + pathPoints.map(p => p.join(' ')).join(' L ');
+                 path.setAttribute('d', pathData);
+            } else {
+                 path.setAttribute('d', ''); // Clear path if out of view
+            }
+            
+            const bSign = b >= 0 ? '+' : '-';
+            const cSign = c >= 0 ? '+' : '-';
+            formulaDisplay.textContent = `\\(f(x) = ${a.toFixed(1)}x^2 ${bSign} ${Math.abs(b).toFixed(1)}x ${cSign} ${Math.abs(c).toFixed(1)}\\)`;
+             if (window.MathJax) {
+                window.MathJax.typesetPromise([formulaDisplay]);
+            }
+        };
+    
+        sliderA.addEventListener('input', update);
+        sliderB.addEventListener('input', update);
+        sliderC.addEventListener('input', update);
+        update();
+    };
+
+    const generateLesson = (topic: string) => {
+        const lesson = knowledgeBase.lessons[topic as keyof typeof knowledgeBase.lessons];
+        if (!lesson) {
+            addMessage(`Désolé, je n'ai pas de leçon sur "${topic}".`, 'ai');
             return;
         }
+
+        const isNewLesson = !appState.lessonHistory.some(item => item.topic === topic && item.type !== 'chat');
+        if (isNewLesson) {
+            appState.lessonHistory.push({
+                id: `topic-${topic}`,
+                topic: topic, 
+                title: lesson.title,
+                type: 'lesson'
+            });
+            saveLessonHistory();
+        }
+
+        const isGoalSet = appState.learningGoals.some(g => g.topic === topic);
+        const goalButtonHTML = `<button class="goal-btn" data-topic="${topic}" ${isGoalSet ? 'disabled' : ''}>${isGoalSet ? '✅ Objectif Ajouté' : '🎯 Définir comme objectif'}</button>`;
+        
+        let interactiveHTML = '';
+        if (topic === "théorème de pythagore") {
+            interactiveHTML = getPythagorasInteractiveHTML();
+        } else if (topic === "fonctions du second degré") {
+            interactiveHTML = getParabolaInteractiveHTML();
+        }
+
+        const interactiveExercisesHTML = generateInteractiveExercises(topic);
+
+        const lessonHTML = `
+            <h2>${lesson.title}</h2>
+            ${interactiveHTML}
+            <p><strong>Définition :</strong> ${lesson.definition}</p>
+            <p><strong>Formule :</strong> ${lesson.formula}</p>
+            <p><strong>Exemple :</strong> ${lesson.example}</p>
+            <p><strong>Utilisation :</strong> ${lesson.usage}</p>
+            <div class="lesson-actions">${goalButtonHTML}</div>
+            ${interactiveExercisesHTML}
+        `;
+        addMessage(lessonHTML, 'ai');
+        appState.mode = 'idle';
+    };
+
+    const renderGeneratedModule = (module: any) => {
+        let html = `<div class="generated-module-container">`;
+        html += `<h2>${module.titre_module}</h2>`;
+    
+        // Leçons
+        if (module.lecons && module.lecons.length > 0) {
+            html += `<div class="module-section"><h3>📚 Leçons Clés</h3>`;
+            module.lecons.forEach((lecon: any) => {
+                html += `<div class="module-lesson">
+                            <h4>${lecon.titre}</h4>
+                            <p>${lecon.contenu}</p>
+                         </div>`;
+            });
+            html += `</div>`;
+        }
+    
+        // Quiz
+        if (module.quiz && module.quiz.length > 0) {
+            html += `<div class="module-section"><h3>🤔 Quiz de Vérification</h3>`;
+            module.quiz.forEach((q: any, index: number) => {
+                html += `<div class="module-quiz-question">
+                            <p><strong>Question ${index + 1}:</strong> ${q.question}</p>
+                            <ul class="quiz-options">
+                                ${q.options.map((opt: string) => `<li>${opt}</li>`).join('')}
+                            </ul>
+                            <details><summary>Voir la réponse</summary><p><strong>Réponse :</strong> ${q.reponse_correcte}</p></details>
+                         </div>`;
+            });
+            html += `</div>`;
+        }
+    
+        // Exercices
+        if (module.exercices && module.exercices.length > 0) {
+            html += `<div class="module-section"><h3>✏️ Exercices Pratiques</h3>`;
+            module.exercices.forEach((ex: any) => {
+                html += `<div class="module-exercise">
+                            <h4>${ex.titre}</h4>
+                            <p>${ex.enonce}</p>
+                         </div>`;
+            });
+            html += `</div>`;
+        }
+    
+        html += `</div>`;
+        addMessage(html, 'ai');
+    };
+
+    const generateModuleFromGoal = async (goalTitle: string) => {
+        await showChatView();
+        addMessage(`Parfait ! Je prépare un mini-module d'apprentissage sur "<strong>${goalTitle}</strong>" pour toi...`, 'ai');
+        const typingIndicator = showTypingIndicator();
+
+        const generationPrompt = `
+        Tu es un concepteur pédagogique expert en mathématiques et un assistant d'apprentissage intelligent intégré dans l'application "MathIA".
+        Ta mission est de prendre l'objectif d'apprentissage brut fourni par un utilisateur et de le transformer instantanément en un mini-module d'apprentissage structuré. Le module doit être clair, concis et adapté à un débutant sur le sujet.
+        Voici l'objectif que l'utilisateur vient d'ajouter depuis la section "Mes Objectifs" :
+        "${goalTitle}"
+        Analyse cet objectif et génère le contenu suivant :
+        1. Leçons Clés : Génère 2 à 3 leçons courtes et synthétiques qui couvrent les concepts mathématiques fondamentaux de l'objectif. Chaque leçon doit avoir un titre et un contenu explicatif simple avec des exemples clairs.
+        2. Quiz de Vérification : Crée un quiz de 4 questions à choix multiples pour tester la compréhension des leçons. Chaque question doit avoir 4 options de réponse et une seule réponse correcte.
+        3. Exercices Pratiques : Propose 2 exercices ou problèmes qui permettent à l'utilisateur de mettre en pratique les concepts appris. Chaque exercice doit avoir un énoncé clair.
+        Le résultat final DOIT impérativement être un objet JSON unique, sans aucun texte avant ou après, afin que l'application "MathAI" puisse l'interpréter directement.
+        Voici la structure exacte du JSON attendu :
+        {
+          "objectif_initial": "Le texte de l'objectif de l'utilisateur",
+          "module_apprentissage": {
+            "titre_module": "Un titre de module pertinent généré à partir de l'objectif",
+            "lecons": [
+              { "titre": "Titre de la leçon 1", "contenu": "Contenu explicatif de la leçon 1." },
+              { "titre": "Titre de la leçon 2", "contenu": "Contenu explicatif de la leçon 2." }
+            ],
+            "quiz": [
+              { "question": "Texte de la question 1 ?", "options": ["Option A", "Option B", "Option C", "Option D"], "reponse_correcte": "La bonne réponse textuelle ici" }
+            ],
+            "exercices": [
+              { "titre": "Exercice 1 : Mise en pratique", "enonce": "Énoncé clair de l'exercice 1." }
+            ]
+          }
+        }`;
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-pro',
+                contents: generationPrompt,
+                config: {
+                    responseMimeType: "application/json",
+                },
+            });
+
+            hideTypingIndicator(typingIndicator);
+            let jsonText = response.text;
+            jsonText = jsonText.replace(/^```json\s*|```$/g, '').trim();
+
+            const moduleData = JSON.parse(jsonText);
+            if (moduleData && moduleData.module_apprentissage) {
+                renderGeneratedModule(moduleData.module_apprentissage);
+            } else {
+                 throw new Error("Format JSON invalide reçu de l'API.");
+            }
+
+        } catch (error) {
+            console.error("Erreur lors de la génération du module d'apprentissage:", error);
+            hideTypingIndicator(typingIndicator);
+            addMessage("Désolé, une erreur est survenue lors de la création de ton module d'apprentissage. Pourrais-tu réessayer ?", 'ai');
+        }
+    };
+
+
+    const generateInteractiveExercises = (topic: string): string => {
+        const exercises = knowledgeBase.interactiveExercises[topic as keyof typeof knowledgeBase.interactiveExercises];
+        if (!exercises || exercises.length === 0) {
+            return '';
+        }
+
+        let exercisesHTML = '<div class="interactive-exercise-container"><h3>Exercices Interactifs</h3>';
+        
+        exercises.forEach((exercise, index) => {
+            let inputAreaHTML = '';
+            switch (exercise.type) {
+                case 'multiple-choice':
+                    inputAreaHTML = exercise.options.map(option =>
+                        `<button class="exercise-option-btn" data-answer="${option}">${option}</button>`
+                    ).join('');
+                    break;
+                case 'fill-in-the-blank':
+                    inputAreaHTML = `<input type="text" class="exercise-text-input" placeholder="Votre réponse...">
+                                     <button class="exercise-submit-btn">Valider</button>`;
+                    break;
+                case 'calculation':
+                    inputAreaHTML = `<input type="text" class="exercise-text-input" placeholder="Entrez le calcul ou la réponse">
+                                     <button class="exercise-submit-btn">Valider</button>`;
+                    break;
+            }
+
+            exercisesHTML += `
+                <div class="interactive-exercise" data-topic="${topic}" data-exercise-index="${index}" data-type="${exercise.type}">
+                    <p class="exercise-question">${index + 1}. ${exercise.question}</p>
+                    <div class="exercise-input-area">${inputAreaHTML}</div>
+                    <div class="exercise-feedback"></div>
+                </div>
+            `;
+        });
+
+        exercisesHTML += '</div>';
+        return exercisesHTML;
+    };
+    
+    const handleInteractiveExercise = (exerciseEl: HTMLElement, userAnswer: string) => {
+        if (!exerciseEl.dataset.topic || !exerciseEl.dataset.exerciseIndex) return;
+
+        const topic = exerciseEl.dataset.topic;
+        const index = parseInt(exerciseEl.dataset.exerciseIndex, 10);
+        const exercise = knowledgeBase.interactiveExercises[topic as keyof typeof knowledgeBase.interactiveExercises][index];
+        const feedbackEl = exerciseEl.querySelector('.exercise-feedback') as HTMLDivElement;
+        const inputAreaEl = exerciseEl.querySelector('.exercise-input-area') as HTMLDivElement;
+
+        const isCorrect = userAnswer.trim().toLowerCase() === exercise.answer.toLowerCase();
+
+        // Disable all inputs after an answer is given
+        inputAreaEl.querySelectorAll('button, input').forEach(el => (el as HTMLButtonElement | HTMLInputElement).disabled = true);
+        
+        let feedbackHTML = '';
+        if (isCorrect) {
+            feedbackHTML = `<span class="correct">Correct !</span> ${exercise.explanation}`;
+            feedbackEl.classList.add('correct');
+            feedbackEl.classList.remove('incorrect');
+        } else {
+            feedbackHTML = `<span class="incorrect">Incorrect.</span> La bonne réponse est <strong>${exercise.answer}</strong>. ${exercise.explanation}`;
+            feedbackEl.classList.add('incorrect');
+            feedbackEl.classList.remove('correct');
+        }
+        
+        feedbackEl.innerHTML = feedbackHTML;
+
+        // Visual feedback for multiple choice
+        if (exercise.type === 'multiple-choice') {
+            inputAreaEl.querySelectorAll('.exercise-option-btn').forEach(btn => {
+                const button = btn as HTMLButtonElement;
+                if (button.dataset.answer?.toLowerCase() === exercise.answer.toLowerCase()) {
+                    button.classList.add('correct-answer');
+                } else if (button.dataset.answer?.toLowerCase() === userAnswer.toLowerCase()) {
+                    button.classList.add('incorrect-answer');
+                }
+            });
+        }
+    };
+
+
+    const startQuiz = (topic: string) => {
         appState.mode = 'quiz';
-        appState.quiz = {
-            topic,
-            questionIndex: 0,
-            score: 0,
-            difficulty: 'medium',
-            questions: questions,
-            currentQuestion: null,
-            askedQuestions: []
-        };
-        aiRespond(`Parfait, commençons un quiz adaptatif sur : <strong>${topic}</strong>. Bonne chance !`, 500);
+        appState.quiz.topic = topic;
+        appState.quiz.questionIndex = 0;
+        appState.quiz.score = 0;
+        appState.quiz.askedQuestions = [];
+
+        // Filter questions by difficulty
+        const allQuestions = knowledgeBase.quizzes[topic as keyof typeof knowledgeBase.quizzes] || [];
+        appState.quiz.questions = allQuestions.filter(q => q.difficulty === appState.quiz.difficulty);
+        
+        if (appState.quiz.questions.length === 0) {
+            addMessage(`Désolé, je n'ai pas de quiz de difficulté '${appState.quiz.difficulty}' pour "${topic}".`, 'ai');
+            appState.mode = 'idle';
+            return;
+        }
+
+        addMessage(`Excellent choix ! Commençons un quiz sur "${topic}". Prêt(e) ?`, 'ai');
         setTimeout(askNextQuizQuestion, 1500);
     };
     
-    const findNextQuestion = () => {
-        const { difficulty, questions, askedQuestions } = appState.quiz;
-        
-        const difficultyLevels = ['easy', 'medium', 'hard'];
-        let potentialQuestions = [];
-
-        potentialQuestions = questions.filter((q: any) => q.difficulty === difficulty && !askedQuestions.includes(q.question));
-
-        if (potentialQuestions.length === 0) {
-             const otherLevels = difficultyLevels.filter(level => level !== difficulty);
-             for (const level of otherLevels) {
-                 potentialQuestions = questions.filter((q: any) => q.difficulty === level && !askedQuestions.includes(q.question));
-                 if (potentialQuestions.length > 0) break;
-             }
-        }
-        
-        if (potentialQuestions.length === 0) {
-            return null;
-        }
-
-        const randomIndex = Math.floor(Math.random() * potentialQuestions.length);
-        return potentialQuestions[randomIndex];
-    }
-
     const askNextQuizQuestion = () => {
-         if (appState.quiz.questionIndex >= 5) { 
+        if (appState.quiz.questionIndex >= appState.quiz.questions.length) {
             endQuiz();
             return;
-         }
-         
-         const nextQuestion = findNextQuestion();
-
-         if (!nextQuestion) {
-            endQuiz();
-            return;
-         }
-         
-         appState.quiz.currentQuestion = nextQuestion;
-         appState.quiz.askedQuestions.push(nextQuestion.question);
-
-         aiRespond(`<strong>Question ${appState.quiz.questionIndex + 1}/5 (Niveau: ${appState.quiz.difficulty}):</strong> ${nextQuestion.question}`);
-    };
-
-    const processQuizAnswer = (answer: string) => {
-        const { currentQuestion } = appState.quiz;
-        if (!currentQuestion) return;
-        
-        if (answer.toLowerCase().includes((currentQuestion as any).answer.toLowerCase())) {
-            appState.quiz.score++;
-            aiRespond("C'est correct ! 👍", 500);
-            if (appState.quiz.difficulty === 'easy') appState.quiz.difficulty = 'medium';
-            else if (appState.quiz.difficulty === 'medium') appState.quiz.difficulty = 'hard';
-        } else {
-            aiRespond(`Ce n'est pas tout à fait ça. La bonne réponse était <strong>${(currentQuestion as any).answer}</strong>.<br><em>Explication : ${(currentQuestion as any).explanation}</em>`, 500);
-            if (appState.quiz.difficulty === 'hard') appState.quiz.difficulty = 'medium';
-            else if (appState.quiz.difficulty === 'medium') appState.quiz.difficulty = 'easy';
         }
         
+        appState.quiz.currentQuestion = appState.quiz.questions[appState.quiz.questionIndex];
+        addMessage(`<strong>Question ${appState.quiz.questionIndex + 1} :</strong> ${appState.quiz.currentQuestion.question}`, 'ai');
+    };
+    
+    const processQuizAnswer = (answer: string) => {
+        if (!appState.quiz.currentQuestion) return;
+        
+        const isCorrect = answer.trim().toLowerCase() === appState.quiz.currentQuestion.answer.toLowerCase();
+        
+        if (isCorrect) {
+            appState.quiz.score++;
+            addMessage("Bonne réponse ! 👍", 'ai');
+        } else {
+            addMessage(`Ce n'est pas tout à fait ça. La bonne réponse était : <strong>${appState.quiz.currentQuestion.answer}</strong>.`, 'ai');
+        }
+        
+        addMessage(appState.quiz.currentQuestion.explanation, 'ai');
+
         appState.quiz.questionIndex++;
         setTimeout(askNextQuizQuestion, 2000);
     };
-    
+
     const endQuiz = () => {
-        const { score, questionIndex, topic } = appState.quiz;
-        let message = `Quiz terminé ! Ton score est de <strong>${score}/${questionIndex}</strong>.`;
-        if (score >= 4) {
-            message += "<br>Excellent travail, tu maîtrises le sujet ! 💪";
-            if (topic) {
-                appState.userProgress.masteredTopics.add(topic);
+        const totalQuestions = appState.quiz.questions.length;
+        const score = appState.quiz.score;
+        const percentage = Math.round((score / totalQuestions) * 100);
+        let message = `Quiz terminé ! Tu as obtenu <strong>${score} sur ${totalQuestions}</strong> (${percentage}%).`;
+        
+        if (percentage >= 80) {
+            message += " Excellent travail ! Tu maîtrises bien ce sujet. 💪";
+            if (appState.quiz.topic) {
+                appState.userProgress.masteredTopics.add(appState.quiz.topic);
                 saveUserProgress();
                 updateProgressBar();
+                renderLearningGoals();
             }
-        } else if (score >= 2) {
-            message += "<br>Pas mal du tout ! Continue de t'entraîner. 🙂";
+        } else if (percentage >= 50) {
+            message += " Pas mal ! Continue de t'entraîner pour devenir un expert.";
         } else {
-            message += "<br>Ne te décourage pas, revois la leçon et réessaye ! L'important c'est d'apprendre. 🧠";
+            message += " Ne te décourage pas. Chaque erreur est une occasion d'apprendre. Veux-tu revoir la leçon sur ce sujet ?";
         }
-        
-        aiRespond(message);
-        appState.mode = 'idle';
-        appState.quiz.currentQuestion = null;
-    };
 
-    // --- Practice Mode Functions ---
+        addMessage(message, 'ai');
+        appState.mode = 'idle';
+    };
+    
     const startPracticeMode = (topic: string) => {
-        const exercises = knowledgeBase.practiceExercises[topic as keyof typeof knowledgeBase.practiceExercises];
-        if (!exercises || exercises.length === 0) {
-            aiRespond("Désolé, je n'ai pas d'exercices de pratique sur ce sujet pour le moment.");
+        appState.mode = 'practice';
+        appState.practice.topic = topic;
+        appState.practice.exerciseIndex = 0;
+        appState.practice.exercises = knowledgeBase.practiceExercises[topic as keyof typeof knowledgeBase.practiceExercises] || [];
+
+        if (appState.practice.exercises.length === 0) {
+            addMessage(`Désolé, je n'ai pas d'exercices pratiques pour "${topic}".`, 'ai');
+            appState.mode = 'idle';
             return;
         }
-        appState.mode = 'practice';
-        appState.practice = {
-            topic,
-            exerciseIndex: 0,
-            exercises: [...exercises].sort(() => 0.5 - Math.random()), // Shuffle exercises
-            currentExercise: null,
-        };
-        aiRespond(`Très bien ! Démarrons une session d'entraînement sur : <strong>${topic}</strong>. Fais de ton mieux !`, 500);
-        setTimeout(askNextPracticeExercise, 1500);
-    };
 
-    const askNextPracticeExercise = () => {
-         const { exerciseIndex, exercises } = appState.practice;
-         if (exerciseIndex >= exercises.length) { 
+        addMessage(`Mode entraînement activé pour "${topic}". Allons-y !`, 'ai');
+        setTimeout(askNextPracticeProblem, 1500);
+    };
+    
+    const askNextPracticeProblem = () => {
+         if (appState.practice.exerciseIndex >= appState.practice.exercises.length) {
             endPracticeMode();
             return;
-         }
-         
-         const nextExercise = exercises[exerciseIndex];
-         appState.practice.currentExercise = nextExercise;
-
-         aiRespond(`<strong>Exercice ${exerciseIndex + 1}/${exercises.length}:</strong> ${nextExercise.problem}`);
-    };
-
-    const getPracticeFeedback = async (problem: string, userAnswer: string): Promise<string> => {
-        try {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Évalue la réponse de l'élève. Problème: "${problem}". Réponse de l'élève: "${userAnswer}". Si la réponse est correcte, félicite-le et donne une brève explication. Si elle est incorrecte, ne donne PAS la bonne réponse, mais guide-le avec une question ou une piste pour l'aider à corriger son erreur. Sois encourageant.`,
-                config: {
-                    systemInstruction: "Tu es MathIA, un tuteur de mathématiques encourageant. Ton rôle est de fournir un feedback constructif sur les exercices de pratique.",
-                }
-            });
-            return response.text;
-        } catch (error) {
-            console.error("Error calling Gemini API for practice feedback:", error);
-            return "Désolé, une erreur est survenue. Passons à la suite.";
         }
+        
+        appState.practice.currentExercise = appState.practice.exercises[appState.practice.exerciseIndex];
+        addMessage(`<strong>Exercice ${appState.practice.exerciseIndex + 1} :</strong> ${appState.practice.currentExercise.problem}`, 'ai');
     };
     
     const processPracticeAnswer = async (answer: string) => {
-        const { currentExercise } = appState.practice;
-        if (!currentExercise) return;
-
+        if (!appState.practice.currentExercise) return;
+        
         const typingIndicator = showTypingIndicator();
-        const feedback = await getPracticeFeedback(currentExercise.problem, answer);
-        hideTypingIndicator(typingIndicator);
-        addMessage(feedback, 'ai');
+        try {
+            const prompt = `L'élève a répondu "${answer}" à la question "${appState.practice.currentExercise.problem}".
+            Vérifie si la réponse est correcte.
+            Si c'est correct, félicite-le et explique brièvement pourquoi.
+            Si c'est incorrect, ne donne pas la réponse finale, mais donne un indice ou pose une question pour le guider vers la bonne méthode.
+            Sois encourageant.`;
 
-        appState.practice.exerciseIndex++;
-        setTimeout(askNextPracticeExercise, 2500);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    systemInstruction: "Tu es un tuteur de maths qui évalue les réponses des exercices. Sois positif et guide l'élève.",
+                }
+            });
+
+            hideTypingIndicator(typingIndicator);
+            addMessage(response.text, 'ai');
+
+            // Heuristic to decide if the answer was correct to move on
+            if (response.text.toLowerCase().includes('correct') || response.text.toLowerCase().includes('exactement') || response.text.toLowerCase().includes('parfait')) {
+                 appState.practice.exerciseIndex++;
+                 setTimeout(askNextPracticeProblem, 3000);
+            }
+
+        } catch (error) {
+            console.error("Error evaluating practice answer:", error);
+            hideTypingIndicator(typingIndicator);
+            addMessage("Oups, une erreur s'est produite. Pourrais-tu répéter ta réponse ?", 'ai');
+        }
     };
     
     const endPracticeMode = () => {
-        aiRespond("Session d'entraînement terminée ! Excellent travail. Continue comme ça ! 👍");
+        addMessage("Super séance d'entraînement ! Tu t'es bien débrouillé. N'hésite pas si tu veux faire d'autres exercices.", 'ai');
         appState.mode = 'idle';
-        appState.practice.currentExercise = null;
-    };
-    
-    const handleSearchInput = () => {
-        const query = sidebarSearch.value.trim();
-        searchResultsContainer.innerHTML = '';
-
-        if (query.length < 2) {
-            return;
-        }
-
-        const lowerCaseQuery = query.toLowerCase();
-
-        const matchingLessons = Object.entries(knowledgeBase.lessons).filter(([key, lesson]) => 
-            key.toLowerCase().includes(lowerCaseQuery) || lesson.title.toLowerCase().includes(lowerCaseQuery)
-        );
-        const matchingQuizzes = Object.keys(knowledgeBase.quizzes).filter(topic => topic.toLowerCase().includes(lowerCaseQuery));
-        const matchingPractice = Object.keys(knowledgeBase.practiceExercises).filter(topic => topic.toLowerCase().includes(lowerCaseQuery));
-
-        if (matchingLessons.length === 0 && matchingQuizzes.length === 0 && matchingPractice.length === 0) {
-            searchResultsContainer.innerHTML = `<div class="no-results">Aucun résultat trouvé.</div>`;
-            return;
-        }
-        
-        const highlightMatch = (text: string, query: string) => {
-            if (!query) return text;
-            const escapedQuery = query.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
-            const regex = new RegExp(`(${escapedQuery})`, 'gi');
-            return text.replace(regex, '<strong>$1</strong>');
-        };
-
-        matchingLessons.forEach(([key, lesson]) => {
-            const item = document.createElement('a');
-            item.className = 'search-result-item';
-            item.dataset.lessonTopic = key;
-            item.innerHTML = `${highlightMatch(lesson.title, query)} <span class="result-type result-type-lesson">Leçon</span>`;
-            searchResultsContainer.appendChild(item);
-        });
-        
-        matchingQuizzes.forEach(topic => {
-            const item = document.createElement('a');
-            item.className = 'search-result-item';
-            item.dataset.quizTopic = topic;
-            const displayName = topic.charAt(0).toUpperCase() + topic.slice(1);
-            item.innerHTML = `${highlightMatch(displayName, query)} <span class="result-type result-type-quiz">Quiz</span>`;
-            searchResultsContainer.appendChild(item);
-        });
-
-        matchingPractice.forEach(topic => {
-            const item = document.createElement('a');
-            item.className = 'search-result-item';
-            item.dataset.practiceTopic = topic;
-            const displayName = topic.charAt(0).toUpperCase() + topic.slice(1);
-            item.innerHTML = `${highlightMatch(displayName, query)} <span class="result-type result-type-practice">Pratique</span>`;
-            searchResultsContainer.appendChild(item);
-        });
     };
 
-    let suggestionDebounceTimer: number;
-    const handleInputSuggestions = () => {
-        const query = userInput.value.trim().toLowerCase();
-        inputSuggestions.innerHTML = '';
-
-        if (query.length < 2) {
-            inputSuggestions.style.display = 'none';
-            return;
-        }
-
-        const matches = uniqueSuggestions.filter(term => term.toLowerCase().includes(query));
-        
-        const highlightMatch = (text: string, query: string) => {
-            const escapedQuery = query.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
-            const regex = new RegExp(`(${escapedQuery})`, 'gi');
-            return text.replace(regex, '<strong>$1</strong>');
-        };
-
-        if (matches.length > 0) {
-            matches.slice(0, 5).forEach(match => {
-                const item = document.createElement('div');
-                item.className = 'suggestion-item';
-                item.innerHTML = highlightMatch(match, query);
-                item.dataset.value = match;
-                inputSuggestions.appendChild(item);
-            });
-            inputSuggestions.style.display = 'block';
-        } else {
-            inputSuggestions.style.display = 'none';
-        }
-    };
-    
-    const handleFileSelect = (event: Event) => {
-        const target = event.target as HTMLInputElement;
-        const file = target.files?.[0];
-        if (!file) return;
-
-        appState.stagedFile = file;
-        displayFilePreview();
-        
-        fileInput.value = '';
-    };
-
-    const displayFilePreview = () => {
-        const file = appState.stagedFile;
-        if (!file) return;
-
-        const fileSize = (file.size / 1024).toFixed(1) + ' KB';
-        let previewHTML = '';
-        
-        if (file.type.startsWith('image/')) {
-            const objectURL = URL.createObjectURL(file);
-            previewHTML = `<img src="${objectURL}" alt="Aperçu">`;
-        } else {
-            previewHTML = `<span>📎</span>`;
-        }
-
-        filePreviewContainer.innerHTML = `
-            <div class="file-preview">
-                ${previewHTML}
-                <div class="file-info">
-                    <span class="file-name">${file.name}</span>
-                    <span class="file-size">${fileSize}</span>
-                </div>
-                <button id="remove-file-btn" title="Retirer le fichier">&times;</button>
-            </div>`;
-        filePreviewContainer.style.display = 'block';
-
-        document.getElementById('remove-file-btn')?.addEventListener('click', clearStagedFile);
-    };
-
-    const clearStagedFile = () => {
-        appState.stagedFile = null;
-        filePreviewContainer.innerHTML = '';
-        filePreviewContainer.style.display = 'none';
-    };
-    
     const fileToBase64 = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -822,102 +1256,406 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- Event Listeners ---
-    menuToggle.addEventListener('click', () => {
-        document.body.classList.toggle('sidebar-collapsed');
-    });
+    const clearStagedFile = () => {
+        appState.stagedFile = null;
+        fileInput.value = '';
+        filePreviewContainer.style.display = 'none';
+        filePreviewContainer.innerHTML = '';
+    };
 
-    sendButton.addEventListener('click', handleUserInput);
-    userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
+    const searchKnowledgeBase = (query: string) => {
+        if (!query) {
+            searchResultsContainer.innerHTML = '';
+            return;
+        }
+        const lowerQuery = query.toLowerCase();
+        let resultsHTML = '';
+        let count = 0;
+
+        // Search Lessons
+        for (const key in knowledgeBase.lessons) {
+            const lesson = knowledgeBase.lessons[key as keyof typeof knowledgeBase.lessons];
+            if (lesson.title.toLowerCase().includes(lowerQuery) || key.includes(lowerQuery)) {
+                resultsHTML += `<div class="search-result-item" data-topic="${key}" data-type="lesson">
+                                    ${lesson.title} <span class="result-type result-type-lesson">Leçon</span>
+                                </div>`;
+                count++;
+            }
+        }
+        // Search Quizzes
+        for (const key in knowledgeBase.quizzes) {
+            if (key.toLowerCase().includes(lowerQuery)) {
+                resultsHTML += `<div class="search-result-item" data-topic="${key}" data-type="quiz">
+                                    Quiz sur ${knowledgeBase.lessons[key as keyof typeof knowledgeBase.lessons]?.title || key} 
+                                    <span class="result-type result-type-quiz">Quiz</span>
+                                </div>`;
+                count++;
+            }
+        }
+        // Search Practice
+         for (const key in knowledgeBase.practiceExercises) {
+            if (key.toLowerCase().includes(lowerQuery)) {
+                resultsHTML += `<div class="search-result-item" data-topic="${key}" data-type="practice">
+                                    Exercices sur ${knowledgeBase.lessons[key as keyof typeof knowledgeBase.lessons]?.title || key}
+                                    <span class="result-type result-type-practice">Pratique</span>
+                                </div>`;
+                count++;
+            }
+        }
+
+        if (count === 0) {
+            resultsHTML = `<div class="no-results">Aucun résultat trouvé.</div>`;
+        }
+
+        searchResultsContainer.innerHTML = resultsHTML;
+    };
+    
+    const getAutocompleteSuggestions = (query: string) => {
+         if (!query) {
             inputSuggestions.style.display = 'none';
+            return;
+        }
+        const lowerQuery = query.toLowerCase();
+        const suggestions = uniqueSuggestions.filter(s => s.toLowerCase().includes(lowerQuery));
+
+        if (suggestions.length > 0) {
+            inputSuggestions.innerHTML = suggestions.map(s => {
+                const regex = new RegExp(`(${query})`, 'gi');
+                const highlighted = s.replace(regex, '<strong>$1</strong>');
+                return `<div class="suggestion-item" data-value="${s}">${highlighted}</div>`;
+            }).join('');
+            inputSuggestions.style.display = 'block';
+        } else {
+            inputSuggestions.style.display = 'none';
+        }
+    };
+    
+    const loadChatFromHistory = async (chatId: string) => {
+        const chatSession = appState.lessonHistory.find(item => item.id === chatId && item.type === 'chat');
+        if (chatSession) {
+            await saveCurrentChatIfNeeded();
+            
+            appState.isViewingHistory = true;
+            switchToChatView();
+            backToHistoryBtn.style.display = 'block';
+            
+            chatWindow.innerHTML = ''; 
+            appState.currentChat = [];
+            
+            chatSession.content.forEach((message: any) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${message.sender}-message`;
+                const icon = document.createElement('div');
+                icon.className = 'icon';
+                icon.textContent = message.sender === 'ai' ? 'IA' : 'Moi';
+                const content = document.createElement('div');
+                content.className = 'message-content';
+                content.innerHTML = message.text; // Assume text is safe HTML, or sanitize if needed
+                messageDiv.appendChild(icon);
+                messageDiv.appendChild(content);
+                chatWindow.appendChild(messageDiv);
+            });
+
+            appState.currentChat = [...chatSession.content];
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            if (window.MathJax) {
+                window.MathJax.typesetPromise([chatWindow]);
+            }
+        }
+    };
+
+    const loadLessonFromHistory = async (topic: string) => {
+        await saveCurrentChatIfNeeded();
+
+        appState.isViewingHistory = true;
+        switchToChatView();
+        backToHistoryBtn.style.display = 'block';
+
+        chatWindow.innerHTML = '';
+        appState.currentChat = [];
+
+        generateLesson(topic);
+    };
+
+
+    // --- Context Menu Handlers ---
+    let activeContextMenuGoal: string | null = null;
+    let activeContextMenuHistoryId: string | null = null;
+
+    const showGoalContextMenu = (x: number, y: number, topic: string) => {
+        goalContextMenu.style.left = `${x}px`;
+        goalContextMenu.style.top = `${y}px`;
+        goalContextMenu.style.display = 'block';
+        activeContextMenuGoal = topic;
+    };
+    
+    const showHistoryContextMenu = (x: number, y: number, historyId: string) => {
+        historyContextMenu.style.left = `${x}px`;
+        historyContextMenu.style.top = `${y}px`;
+        historyContextMenu.style.display = 'block';
+        activeContextMenuHistoryId = historyId;
+    };
+
+    const hideContextMenus = () => {
+        goalContextMenu.style.display = 'none';
+        historyContextMenu.style.display = 'none';
+        activeContextMenuGoal = null;
+        activeContextMenuHistoryId = null;
+    };
+
+
+    // --- Event Listeners ---
+    sendButton.addEventListener('click', handleUserInput);
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
             handleUserInput();
         }
     });
 
-    attachFileButton.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', handleFileSelect);
-
     suggestionButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            userInput.value = (button as HTMLButtonElement).dataset.value || '';
+        button.addEventListener('click', (e) => {
+            const target = e.currentTarget as HTMLButtonElement;
+            userInput.value = target.dataset.value || '';
+            userInput.focus();
             handleUserInput();
         });
     });
     
     charButtons.forEach(button => {
         button.addEventListener('click', (e) => {
-            e.preventDefault();
-            const char = (button as HTMLButtonElement).dataset.char;
+            const char = (e.currentTarget as HTMLButtonElement).dataset.char;
             if (char) insertAtCursor(char);
         });
     });
 
-    sidebarSearch.addEventListener('input', handleSearchInput);
-    
-    searchResultsContainer.addEventListener('click', (e) => {
-        const target = (e.target as HTMLElement).closest('.search-result-item');
-        if (!target) return;
-        
-        const lessonTopic = (target as HTMLElement).dataset.lessonTopic;
-        const quizTopic = (target as HTMLElement).dataset.quizTopic;
-        const practiceTopic = (target as HTMLElement).dataset.practiceTopic;
+    attachFileButton.addEventListener('click', () => fileInput.click());
 
-        if (lessonTopic) {
-            generateLesson(lessonTopic);
-        } else if (quizTopic) {
-            startQuiz(quizTopic);
-        } else if (practiceTopic) {
-            startPracticeMode(practiceTopic);
-        }
+    fileInput.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        if (target.files && target.files[0]) {
+            appState.stagedFile = target.files[0];
+            const file = appState.stagedFile;
+            
+            let previewHTML = '';
+            if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                previewHTML = `<img src="${url}" alt="Aperçu">`;
+            } else {
+                previewHTML = `<span>📎</span>`; // Generic file icon
+            }
 
+            filePreviewContainer.innerHTML = `
+                <div class="file-preview">
+                    ${previewHTML}
+                    <div class="file-info">
+                        <span class="file-name">${file.name}</span>
+                        <span class="file-size">${(file.size / 1024).toFixed(1)} Ko</span>
+                    </div>
+                    <button id="remove-file-btn" title="Retirer le fichier">&times;</button>
+                </div>
+            `;
+            filePreviewContainer.style.display = 'block';
 
-        sidebarSearch.value = '';
-        searchResultsContainer.innerHTML = '';
-        if (window.innerWidth < 768) {
-            document.body.classList.add('sidebar-collapsed');
+            document.getElementById('remove-file-btn')?.addEventListener('click', clearStagedFile);
         }
     });
-    
-    navChat.addEventListener('click', (e) => {
-        e.preventDefault();
-        showChatView();
+
+    menuToggle.addEventListener('click', () => {
+        document.body.classList.toggle('sidebar-collapsed');
     });
 
-    navHistory.addEventListener('click', (e) => {
-        e.preventDefault();
+    backToHistoryBtn.addEventListener('click', async () => {
+        await saveCurrentChatIfNeeded(); // Will do nothing if viewing history, which is correct
         showHistoryView();
     });
-    
-    userInput.addEventListener('input', () => {
-        clearTimeout(suggestionDebounceTimer);
-        suggestionDebounceTimer = setTimeout(handleInputSuggestions, 250);
+
+    sidebarSearch.addEventListener('input', () => {
+        searchKnowledgeBase(sidebarSearch.value);
     });
 
-    inputSuggestions.addEventListener('mousedown', (e) => {
+    searchResultsContainer.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
-        if (target.classList.contains('suggestion-item')) {
-            const value = target.dataset.value;
-            if (value) userInput.value = value;
-            handleUserInput();
+        const resultItem = target.closest('.search-result-item') as HTMLDivElement;
+        
+        if (resultItem) {
+            const topic = resultItem.dataset.topic;
+            const type = resultItem.dataset.type;
+
+            if (topic) {
+                showChatView(); // Switch to new chat view
+                if (type === 'lesson') generateLesson(topic);
+                if (type === 'quiz') startQuiz(topic);
+                if (type === 'practice') startPracticeMode(topic);
+            }
+            searchResultsContainer.innerHTML = '';
+            sidebarSearch.value = '';
+        }
+    });
+
+    navChat.addEventListener('click', (e) => { e.preventDefault(); showChatView(); });
+    navHistory.addEventListener('click', async (e) => { e.preventDefault(); await saveCurrentChatIfNeeded(); showHistoryView(); });
+    navSettings.addEventListener('click', async (e) => { e.preventDefault(); await saveCurrentChatIfNeeded(); showSettingsView(); });
+
+    userInput.addEventListener('input', () => {
+        getAutocompleteSuggestions(userInput.value);
+    });
+
+    inputSuggestions.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const suggestionItem = target.closest('.suggestion-item');
+        if (suggestionItem instanceof HTMLElement) {
+            userInput.value = suggestionItem.dataset.value || '';
             inputSuggestions.style.display = 'none';
             userInput.focus();
+            handleUserInput();
+        }
+    });
+    
+    // Delegate event for lesson actions and interactive exercises
+    chatWindow.addEventListener('click', e => {
+        const target = e.target as HTMLElement;
+
+        // Handle "Set as goal" button
+        const goalBtn = target.closest('.goal-btn');
+        if (goalBtn instanceof HTMLButtonElement) {
+             const topic = goalBtn.dataset.topic;
+            if (topic) {
+                setLearningGoal(topic);
+                goalBtn.textContent = '✅ Objectif Ajouté';
+                goalBtn.disabled = true;
+            }
+            return; // Stop further processing
+        }
+        
+        // Handle interactive exercise buttons/inputs
+        const exerciseEl = target.closest('.interactive-exercise');
+        if (exerciseEl instanceof HTMLElement) {
+             let userAnswer: string | null = null;
+             
+             if (target.classList.contains('exercise-option-btn')) {
+                 userAnswer = (target as HTMLButtonElement).dataset.answer ?? null;
+             } else if (target.classList.contains('exercise-submit-btn')) {
+                 const input = exerciseEl.querySelector('.exercise-text-input') as HTMLInputElement;
+                 if (input) userAnswer = input.value;
+             }
+
+             if (userAnswer !== null) {
+                handleInteractiveExercise(exerciseEl, userAnswer);
+             }
+        }
+    });
+    
+    learningGoalsList.addEventListener('click', e => {
+        const target = e.target as Element;
+        const goalItem = target.closest('.goal-item');
+         if (goalItem instanceof HTMLElement) {
+            const goalTitle = goalItem.title.replace('Travailler sur : ', '');
+            if (goalTitle) {
+                generateModuleFromGoal(goalTitle);
+            }
         }
     });
 
-    userInput.addEventListener('blur', () => {
-        setTimeout(() => {
-            inputSuggestions.style.display = 'none';
-        }, 150);
+    learningGoalsList.addEventListener('contextmenu', e => {
+        const target = e.target as Element;
+        const goalItem = target.closest('.goal-item');
+        if (goalItem instanceof HTMLElement) {
+            e.preventDefault();
+            const topic = goalItem.dataset.topic;
+            if (topic) {
+                showGoalContextMenu(e.pageX, e.pageY, topic);
+            }
+        }
     });
 
-    userInput.addEventListener('keydown', (e) => {
+    deleteGoalBtn.addEventListener('click', () => {
+        if (activeContextMenuGoal) {
+            deleteLearningGoal(activeContextMenuGoal);
+        }
+        hideContextMenus();
+    });
+    
+    addGoalBtn.addEventListener('click', () => {
+        const isVisible = addGoalFormContainer.style.display === 'flex';
+        addGoalFormContainer.style.display = isVisible ? 'none' : 'flex';
+        if (!isVisible) {
+            newGoalInput.focus();
+        }
+    });
+
+    saveGoalBtn.addEventListener('click', () => {
+        addCustomLearningGoal(newGoalInput.value);
+        newGoalInput.value = '';
+        addGoalFormContainer.style.display = 'none';
+    });
+    
+    newGoalInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveGoalBtn.click();
+        }
         if (e.key === 'Escape') {
-            inputSuggestions.style.display = 'none';
+             newGoalInput.value = '';
+             addGoalFormContainer.style.display = 'none';
         }
     });
 
-    // --- Initial Message ---
-    aiRespond("Bonjour ! Je suis MathIA, ton assistant personnel pour les mathématiques. Comment puis-je t'aider aujourd'hui ? Tu peux maintenant aussi me joindre une photo ou un PDF de ton exercice !", 500);
+    historyView.addEventListener('contextmenu', e => {
+        const historyLink = (e.target as Element).closest('.history-item');
+        if (historyLink instanceof HTMLElement) {
+            e.preventDefault();
+            const historyId = historyLink.dataset.historyId;
+            if (historyId) {
+                showHistoryContextMenu(e.pageX, e.pageY, historyId);
+            }
+        }
+    });
+    
+    historyView.addEventListener('click', e => {
+        const historyLink = (e.target as Element).closest('.history-item');
+         if (historyLink instanceof HTMLElement) {
+            e.preventDefault();
+            const chatId = historyLink.dataset.chatId;
+            const topic = historyLink.dataset.topic;
+            if (chatId) {
+                loadChatFromHistory(chatId);
+            } else if (topic) {
+                loadLessonFromHistory(topic);
+            }
+        }
+    });
+
+
+    deleteHistoryBtn.addEventListener('click', () => {
+        if (activeContextMenuHistoryId) {
+            deleteHistoryItem(activeContextMenuHistoryId);
+        }
+        hideContextMenus();
+    });
+    
+    // Global listener to hide menus
+    document.addEventListener('click', (e) => {
+        // Hide context menus if clicking outside of them
+        if (!(goalContextMenu.contains(e.target as Node)) && !(historyContextMenu.contains(e.target as Node))) {
+            hideContextMenus();
+        }
+
+        // Hide input suggestions if clicking outside the input area
+        if (!inputWrapper.contains(e.target as Node)) {
+             inputSuggestions.style.display = 'none';
+        }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            hideContextMenus();
+        }
+    });
+
+
+    // --- Initial Setup ---
+    showChatView();
     updateProgressBar();
+    renderLearningGoals();
 });
