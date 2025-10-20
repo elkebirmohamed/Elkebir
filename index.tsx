@@ -162,32 +162,32 @@ document.addEventListener('DOMContentLoaded', () => {
             "théorème de pythagore": {
                 title: "Théorème de Pythagore",
                 definition: "Dans un triangle rectangle, le carré de la longueur de l'hypoténuse (le côté opposé à l'angle droit) est égal à la somme des carrés des longueurs des deux autres côtés.",
-                formula: "\\(a^2 + b^2 = c^2\\)",
-                example: "Si un triangle rectangle a des côtés de longueurs \\(a=3\\) et \\(b=4\\), alors l'hypoténuse \\(c\\) se calcule ainsi : \\(3^2 + 4^2 = 9 + 16 = 25\\). Donc, \\(c = \\sqrt{25} = 5\\).",
+                formula: "a² + b² = c²",
+                example: "Si un triangle rectangle a des côtés de longueurs a=3 et b=4, alors l'hypoténuse c se calcule ainsi : 3² + 4² = 9 + 16 = 25. Donc, c = √25 = 5.",
                 usage: "Ce théorème est fondamental en géométrie pour calculer des distances, en architecture pour assurer des angles droits, ou même en navigation."
             },
              "fonctions du second degré": {
                 title: "Fonctions du second degré (ou quadratiques)",
                 definition: "Une fonction du second degré est une fonction polynomiale de degré 2. Sa représentation graphique est une parabole.",
-                formula: "\\(f(x) = ax^2 + bx + c\\), avec \\(a \\neq 0\\)",
-                example: "Pour \\(f(x) = x^2 - 2x - 3\\), la parabole est tournée vers le haut (car \\(a=1 > 0\\)). Les racines (où \\(f(x)=0\\)) sont \\(x=-1\\) et \\(x=3\\).",
+                formula: "f(x) = ax² + bx + c, avec a ≠ 0",
+                example: "Pour f(x) = x² - 2x - 3, la parabole est tournée vers le haut (car a=1 > 0). Les racines (où f(x)=0) sont x=-1 et x=3.",
                 usage: "Elles modélisent des trajectoires (lancer de balle), des surfaces, et permettent d'optimiser des problèmes (profit maximal, etc.)."
             }
         },
         quizzes: {
             "fonctions du second degré": [
-                { difficulty: 'easy', question: "Pour \\(f(x) = 3x^2 - 5x + 1\\), quelle est la valeur de 'a' ?", answer: "3", explanation: "Le coefficient 'a' est le nombre qui multiplie \\(x^2\\)." },
+                { difficulty: 'easy', question: "Pour f(x) = 3x² - 5x + 1, quelle est la valeur de 'a' ?", answer: "3", explanation: "Le coefficient 'a' est le nombre qui multiplie x²." },
                 { difficulty: 'medium', question: "Quelle est la forme de la courbe d'une fonction du second degré ?", answer: "parabole", explanation: "La représentation graphique d'une fonction quadratique est toujours une parabole." },
-                { difficulty: 'medium', question: "Si le discriminant (\\(\\Delta\\)) est positif, combien de racines réelles l'équation a-t-elle ?", answer: "2", explanation: "Un discriminant positif (\\(\\Delta > 0\\)) indique qu'il y a deux solutions réelles distinctes." },
-                { difficulty: 'hard', question: "Trouvez le sommet de la parabole \\(f(x) = x^2 - 4x + 5\\). Répondez sous la forme (x,y).", answer: "(2,1)", explanation: "L'abscisse du sommet est \\(-\\frac{b}{2a}\\), soit \\(-\\frac{-4}{2 \\cdot 1} = 2\\). L'ordonnée est \\(f(2) = 2^2 - 4(2) + 5 = 1\\)." },
-                { difficulty: 'hard', question: "Factorisez \\(x^2 - 5x + 6\\).", answer: "(x-2)(x-3)", explanation: "On cherche deux nombres dont la somme est 5 et le produit est 6. Ces nombres sont 2 et 3." }
+                { difficulty: 'medium', question: "Si le discriminant (Δ) est positif, combien de racines réelles l'équation a-t-elle ?", answer: "2", explanation: "Un discriminant positif (Δ > 0) indique qu'il y a deux solutions réelles distinctes." },
+                { difficulty: 'hard', question: "Trouvez le sommet de la parabole f(x) = x² - 4x + 5. Répondez sous la forme (x,y).", answer: "(2,1)", explanation: "L'abscisse du sommet est (-b/2a), soit (-(-4)/(2 × 1) = 2). L'ordonnée est f(2) = 2² - 4(2) + 5 = 1." },
+                { difficulty: 'hard', question: "Factorisez x² - 5x + 6.", answer: "(x-2)(x-3)", explanation: "On cherche deux nombres dont la somme est 5 et le produit est 6. Ces nombres sont 2 et 3." }
             ],
              "théorème de pythagore": [
                 { difficulty: 'easy', question: "Le théorème de Pythagore s'applique à quel type de triangle ?", answer: "rectangle", explanation: "Le théorème ne s'applique qu'aux triangles rectangles." },
-                { difficulty: 'medium', question: "Si \\(a=6\\) et \\(b=8\\), que vaut \\(c\\) (l'hypoténuse) ?", answer: "10", explanation: "\\(6^2 + 8^2 = 36 + 64 = 100\\). La racine carrée de 100 est 10." },
+                { difficulty: 'medium', question: "Si a=6 et b=8, que vaut c (l'hypoténuse) ?", answer: "10", explanation: "6² + 8² = 36 + 64 = 100. La racine carrée de 100 est 10." },
                 { difficulty: 'medium', question: "Le plus long côté d'un triangle rectangle s'appelle...", answer: "hypoténuse", explanation: "L'hypoténuse est toujours le côté opposé à l'angle droit et le plus long." },
-                { difficulty: 'hard', question: "Un écran 16:9 a une diagonale de 20 pouces. Quelle est approximativement sa largeur ? (Répondez avec un entier)", answer: "17", explanation: "On résout \\((16x)^2 + (9x)^2 = 20^2 \\Rightarrow 337x^2 = 400 \\Rightarrow x \\approx 1.09\\). Largeur = \\(16x \\approx 17.4\\)." },
-                { difficulty: 'hard', question: "Un triangle avec des côtés de 5, 12 et 13 est-il rectangle ?", answer: "oui", explanation: "Oui, car \\(5^2 + 12^2 = 25 + 144 = 169\\), et \\(13^2 = 169\\). L'égalité \\(a^2+b^2=c^2\\) est vérifiée." }
+                { difficulty: 'hard', question: "Un écran 16:9 a une diagonale de 20 pouces. Quelle est approximativement sa largeur ? (Répondez avec un entier)", answer: "17", explanation: "On résout (16x)² + (9x)² = 20² ⇒ 337x² = 400 ⇒ x ≈ 1.09. Largeur = 16x ≈ 17.4." },
+                { difficulty: 'hard', question: "Un triangle avec des côtés de 5, 12 et 13 est-il rectangle ?", answer: "oui", explanation: "Oui, car 5² + 12² = 25 + 144 = 169, et 13² = 169. L'égalité a²+b²=c² est vérifiée." }
             ]
         },
         practiceExercises: {
@@ -197,9 +197,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 { problem: "Une échelle de 5m est appuyée contre un mur. Son pied est à 3m du mur. À quelle hauteur sur le mur l'échelle arrive-t-elle ?" }
             ],
             "fonctions du second degré": [
-                { problem: "Trouvez les racines de l'équation \\(x^2 - 7x + 10 = 0\\)." },
-                { problem: "Quel est le sommet de la parabole définie par \\(f(x) = -2x^2 + 8x - 5\\) ?" },
-                { problem: "Factorisez l'expression \\(2x^2 + 5x - 3\\)." }
+                { problem: "Trouvez les racines de l'équation x² - 7x + 10 = 0." },
+                { problem: "Quel est le sommet de la parabole définie par f(x) = -2x² + 8x - 5 ?" },
+                { problem: "Factorisez l'expression 2x² + 5x - 3." }
             ]
         },
         interactiveExercises: {
@@ -322,14 +322,16 @@ document.addEventListener('DOMContentLoaded', () => {
             'pair-amical': "Ton rôle est celui d'un pair bienveillant et amical. Adresse-toi à l'élève simplement, utilise des analogies et des encouragements. Ton but est de dédramatiser les maths et de rendre l'apprentissage collaboratif.",
             'coach-encourageant': "Ton rôle est celui d'un coach dynamique et motivant. Ton ton est positif et plein d'énergie. Célèbre les petites victoires, encourage l'élève à persévérer et utilise des métaphores pour booster sa confiance."
         };
+        
+        const symbolRule = "\n\n**Règle sur les symboles (TRÈS IMPORTANT) :** N'utilise JAMAIS de code de formatage comme le LaTeX (par exemple `\\le`, `\\ge`). Utilise directement les caractères universels (Unicode) comme `≤`, `≥`, `≠`, `×`, `÷`, `√`.";
     
         const personalityPrefix = personalityInstructions[appState.tutorPersonality as keyof typeof personalityInstructions] || personalityInstructions['pair-amical'];
     
         switch (mode) {
             case 'tutor':
-                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix} Ton but est de guider les élèves vers la solution sans la leur donner. Utilise la méthode socratique, en posant des questions pour stimuler leur réflexion.`;
+                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix} Ton but est de guider les élèves vers la solution sans la leur donner. Utilise la méthode socratique, en posant des questions pour stimuler leur réflexion.` + symbolRule;
             case 'practice':
-                return `Tu es MathIA, un tuteur de maths qui évalue les réponses des exercices. ${personalityPrefix} Sois positif et guide l'élève.`;
+                return `Tu es MathIA, un tuteur de maths qui évalue les réponses des exercices. ${personalityPrefix} Sois positif et guide l'élève.` + symbolRule;
             case 'lesson':
                 return `Tu es MathIA, un tuteur en mathématiques expert, pédagogue et très clair. ${personalityPrefix}
 
@@ -344,15 +346,15 @@ Ta mission est de fournir des leçons complètes sur le sujet demandé par l'uti
 2.  **Mise en Forme du Texte :**
     *   **Termes Clés :** Mets les définitions et les mots importants en gras avec la balise \`<strong>\` (ex: \`une <strong>inéquation</strong> est une relation d'<strong>inégalité</strong>...\`).
     *   **Listes :** Utilise des listes à puces (\`<ul>\` et \`<li>\`) pour énumérer des points, comme les différents symboles ou les étapes d'une méthode.
-    *   **Expressions Mathématiques (MathJax) :** Encadre TOUTES les expressions et formules mathématiques avec la syntaxe MathJax. Utilise \`\\\\( ... \\\\)\` pour les expressions en ligne et \`\\\\[ ... \\\\]\` pour les formules en bloc. C'est crucial pour le rendu. (ex: \`La formule est \\\\(ax^2 + bx + c = 0\\\\)\`).
+    *   **Expressions Mathématiques :** Utilise directement les caractères Unicode pour les symboles mathématiques (ex: \`√\`, \`≤\`, \`≥\`). N'utilise pas la syntaxe LaTeX comme \`\\( ... \\)\`.
 
 3.  **Aération et Lisibilité (LE PLUS IMPORTANT) :**
     *   Rédige des paragraphes courts (2-3 phrases maximum) et encadre chaque paragraphe dans une balise \`<p>\`.
     *   Utilise des exemples concrets pour chaque concept expliqué.
 
-En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le sujet demandé par l'utilisateur.`;
+En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le sujet demandé par l'utilisateur.` + symbolRule;
             default:
-                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix}`;
+                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix}` + symbolRule;
         }
     };
     
@@ -589,12 +591,6 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
                 initParabolaInteractive(interactiveModule);
             }
         }
-
-        if (window.MathJax) {
-            window.MathJax.typesetPromise([messageDiv]).catch((err: any) => {
-                console.error('Erreur de rendu MathJax :', err);
-            });
-        }
     };
 
     const showTypingIndicator = () => {
@@ -759,7 +755,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
                 <text id="pythagoras-label-c" x="25" y="85" font-family="inherit" font-size="10px" fill="var(--text-color-dark)" transform="rotate(-45 30 80)">c=5.66</text>
               </svg>
           </div>
-          <div class="formula-display" id="pythagoras-formula">\\(4^2 + 4^2 = 5.66^2\\)</div>
+          <div class="formula-display" id="pythagoras-formula">4² + 4² = 5.66²</div>
           <div class="interactive-controls">
             <div class="control-group">
               <label>Côté a: <span class="value-display" id="pythagoras-value-a">4</span></label>
@@ -787,7 +783,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
                 <path id="parabola-path" d="M 10 110 Q 60 10, 110 110" stroke="#4a90e2" stroke-width="2.5" fill="none"/>
               </svg>
           </div>
-          <div class="formula-display" id="parabola-formula">\\(f(x) = 1.0x^2 + 0.0x + 0.0\\)</div>
+          <div class="formula-display" id="parabola-formula">f(x) = 1.0x² + 0.0x + 0.0</div>
           <div class="interactive-controls">
             <div class="control-group">
               <label>a: <span class="value-display" id="parabola-value-a">1.0</span></label>
@@ -848,10 +844,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
             const angle = -Math.atan(b/a) * (180/Math.PI);
             labelC.setAttribute('transform', `translate(${cLabelX}, ${cLabelY}) rotate(${angle}) translate(10, -5)`);
     
-            formulaDisplay.textContent = `\\(${a}^2 + ${b}^2 = ${cFormatted}^2\\)`;
-            if (window.MathJax) {
-                window.MathJax.typesetPromise([formulaDisplay]);
-            }
+            formulaDisplay.textContent = `${a}² + ${b}² = ${cFormatted}²`;
         };
         
         sliderA.addEventListener('input', update);
@@ -914,10 +907,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
             
             const bSign = b >= 0 ? '+' : '-';
             const cSign = c >= 0 ? '+' : '-';
-            formulaDisplay.textContent = `\\(f(x) = ${a.toFixed(1)}x^2 ${bSign} ${Math.abs(b).toFixed(1)}x ${cSign} ${Math.abs(c).toFixed(1)}\\)`;
-             if (window.MathJax) {
-                window.MathJax.typesetPromise([formulaDisplay]);
-            }
+            formulaDisplay.textContent = `f(x) = ${a.toFixed(1)}x² ${bSign} ${Math.abs(b).toFixed(1)}x ${cSign} ${Math.abs(c).toFixed(1)}`;
         };
     
         sliderA.addEventListener('input', update);
@@ -1408,9 +1398,6 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
 
             appState.currentChat = [...chatSession.content];
             chatWindow.scrollTop = chatWindow.scrollHeight;
-            if (window.MathJax) {
-                window.MathJax.typesetPromise([chatWindow]);
-            }
         }
     };
 
