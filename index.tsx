@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionButtons = document.querySelectorAll('.suggestion-btn');
     const charButtons = document.querySelectorAll('.char-btn');
     const menuToggle = document.getElementById('menu-toggle') as HTMLButtonElement;
-    const backToHistoryBtn = document.getElementById('back-to-history-btn') as HTMLButtonElement;
+    const backToHistoryBtn = document.getElementById('back-to-history-btn') as HTMLLIElement;
     const sidebarSearch = document.getElementById('sidebar-search') as HTMLInputElement;
     const searchResultsContainer = document.getElementById('search-results') as HTMLDivElement;
     const navChat = document.getElementById('nav-chat') as HTMLAnchorElement;
@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addGoalFormContainer = document.getElementById('add-goal-form-container') as HTMLDivElement;
     const newGoalInput = document.getElementById('new-goal-input') as HTMLInputElement;
     const saveGoalBtn = document.getElementById('save-goal-btn') as HTMLButtonElement;
+    const personalityRadios = document.querySelectorAll('input[name="tutor-personality"]');
 
 
     // --- Application State ---
@@ -118,11 +119,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const loadTutorPersonality = (): string => {
+        return localStorage.getItem('tutorPersonality') || 'pair-amical';
+    };
+
+    const saveTutorPersonality = () => {
+        localStorage.setItem('tutorPersonality', appState.tutorPersonality);
+    };
+
 
     let appState = {
         mode: 'idle', // 'idle', 'quiz', 'tutor', 'practice'
         lessonHistory: loadLessonHistory(),
         learningGoals: loadLearningGoals(),
+        tutorPersonality: loadTutorPersonality(),
         stagedFile: null as File | null,
         currentChat: [] as { sender: 'user' | 'ai'; text: string; attachment?: any }[],
         isViewingHistory: false,
@@ -305,6 +315,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Functions ---
+
+    const getSystemInstruction = (mode: 'lesson' | 'tutor' | 'practice'): string => {
+        const personalityInstructions = {
+            'professeur-formel': "Ton rôle est celui d'un professeur de mathématiques formel. Ton approche est académique, précise et structurée. Utilise un langage soutenu et des explications détaillées. Guide l'élève avec rigueur et logique.",
+            'pair-amical': "Ton rôle est celui d'un pair bienveillant et amical. Adresse-toi à l'élève simplement, utilise des analogies et des encouragements. Ton but est de dédramatiser les maths et de rendre l'apprentissage collaboratif.",
+            'coach-encourageant': "Ton rôle est celui d'un coach dynamique et motivant. Ton ton est positif et plein d'énergie. Célèbre les petites victoires, encourage l'élève à persévérer et utilise des métaphores pour booster sa confiance."
+        };
+    
+        const personalityPrefix = personalityInstructions[appState.tutorPersonality as keyof typeof personalityInstructions] || personalityInstructions['pair-amical'];
+    
+        switch (mode) {
+            case 'tutor':
+                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix} Ton but est de guider les élèves vers la solution sans la leur donner. Utilise la méthode socratique, en posant des questions pour stimuler leur réflexion.`;
+            case 'practice':
+                return `Tu es MathIA, un tuteur de maths qui évalue les réponses des exercices. ${personalityPrefix} Sois positif et guide l'élève.`;
+            case 'lesson':
+                return `Tu es MathIA, un tuteur en mathématiques expert, pédagogue et très clair. ${personalityPrefix}
+
+Ta mission est de fournir des leçons complètes sur le sujet demandé par l'utilisateur. Chaque réponse que tu fournis DOIT suivre impérativement le guide de style suivant pour garantir une lisibilité et un rendu parfaits dans l'application.
+
+### GUIDE DE STYLE HTML OBLIGATOIRE ###
+
+1.  **Structure Générale :**
+    *   Commence toujours par un titre principal clair et pertinent, en utilisant une balise \`<h2>\` (ex: \`<h2>Leçon Complète sur les Inéquations</h2>\`).
+    *   Divise la leçon en sections logiques avec des sous-titres, en utilisant des balises \`<h3>\` (ex: \`<h3>1. Qu'est-ce qu'une inéquation ?</h3>\`).
+
+2.  **Mise en Forme du Texte :**
+    *   **Termes Clés :** Mets les définitions et les mots importants en gras avec la balise \`<strong>\` (ex: \`une <strong>inéquation</strong> est une relation d'<strong>inégalité</strong>...\`).
+    *   **Listes :** Utilise des listes à puces (\`<ul>\` et \`<li>\`) pour énumérer des points, comme les différents symboles ou les étapes d'une méthode.
+    *   **Expressions Mathématiques (MathJax) :** Encadre TOUTES les expressions et formules mathématiques avec la syntaxe MathJax. Utilise \`\\\\( ... \\\\)\` pour les expressions en ligne et \`\\\\[ ... \\\\]\` pour les formules en bloc. C'est crucial pour le rendu. (ex: \`La formule est \\\\(ax^2 + bx + c = 0\\\\)\`).
+
+3.  **Aération et Lisibilité (LE PLUS IMPORTANT) :**
+    *   Rédige des paragraphes courts (2-3 phrases maximum) et encadre chaque paragraphe dans une balise \`<p>\`.
+    *   Utilise des exemples concrets pour chaque concept expliqué.
+
+En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le sujet demandé par l'utilisateur.`;
+            default:
+                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix}`;
+        }
+    };
     
     const updateProgressBar = () => {
         const totalTopics = Object.keys(knowledgeBase.quizzes).length;
@@ -596,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 model: 'gemini-2.5-flash',
                 contents: { parts: [imageDataPart, textPart] },
                 config: {
-                    systemInstruction: "Tu es MathIA, un tuteur de mathématiques sympathique et encourageant. Ton but est de guider les élèves vers la solution sans la leur donner. Utilise la méthode socratique, en posant des questions pour stimuler leur réflexion.",
+                    systemInstruction: getSystemInstruction('tutor'),
                 }
             });
             return response.text;
@@ -665,32 +715,11 @@ document.addEventListener('DOMContentLoaded', () => {
              else {
                  const typingIndicator = showTypingIndicator();
                  try {
-                     const systemInstruction = `Tu es MathIA, un tuteur en mathématiques expert, pédagogue et très clair.
-
-Ta mission est de fournir des leçons complètes sur le sujet demandé par l'utilisateur. Chaque réponse que tu fournis DOIT suivre impérativement le guide de style suivant pour garantir une lisibilité et un rendu parfaits dans l'application.
-
-### GUIDE DE STYLE HTML OBLIGATOIRE ###
-
-1.  **Structure Générale :**
-    *   Commence toujours par un titre principal clair et pertinent, en utilisant une balise \`<h2>\` (ex: \`<h2>Leçon Complète sur les Inéquations</h2>\`).
-    *   Divise la leçon en sections logiques avec des sous-titres, en utilisant des balises \`<h3>\` (ex: \`<h3>1. Qu'est-ce qu'une inéquation ?</h3>\`).
-
-2.  **Mise en Forme du Texte :**
-    *   **Termes Clés :** Mets les définitions et les mots importants en gras avec la balise \`<strong>\` (ex: \`une <strong>inéquation</strong> est une relation d'<strong>inégalité</strong>...\`).
-    *   **Listes :** Utilise des listes à puces (\`<ul>\` et \`<li>\`) pour énumérer des points, comme les différents symboles ou les étapes d'une méthode.
-    *   **Expressions Mathématiques (MathJax) :** Encadre TOUTES les expressions et formules mathématiques avec la syntaxe MathJax. Utilise \`\\\\( ... \\\\)\` pour les expressions en ligne et \`\\\\[ ... \\\\]\` pour les formules en bloc. C'est crucial pour le rendu. (ex: \`La formule est \\\\(ax^2 + bx + c = 0\\\\)\`).
-
-3.  **Aération et Lisibilité (LE PLUS IMPORTANT) :**
-    *   Rédige des paragraphes courts (2-3 phrases maximum) et encadre chaque paragraphe dans une balise \`<p>\`.
-    *   Utilise des exemples concrets pour chaque concept expliqué.
-
-En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le sujet demandé par l'utilisateur.`;
-
                      const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash',
                         contents: query,
                         config: {
-                           systemInstruction: systemInstruction,
+                           systemInstruction: getSystemInstruction('lesson'),
                         }
                      });
                      hideTypingIndicator(typingIndicator);
@@ -1243,7 +1272,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
                 model: 'gemini-2.5-flash',
                 contents: prompt,
                 config: {
-                    systemInstruction: "Tu es un tuteur de maths qui évalue les réponses des exercices. Sois positif et guide l'élève.",
+                    systemInstruction: getSystemInstruction('practice'),
                 }
             });
 
@@ -1368,7 +1397,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
                 messageDiv.className = `message ${message.sender}-message`;
                 const icon = document.createElement('div');
                 icon.className = 'icon';
-                icon.textContent = message.sender === 'ai' ? 'IA' : 'Moi';
+                icon.textContent = message.sender === 'ai' ? 'Moi' : 'IA';
                 const content = document.createElement('div');
                 content.className = 'message-content';
                 content.innerHTML = message.text; // Assume text is safe HTML, or sanitize if needed
@@ -1654,6 +1683,13 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
         }
         hideContextMenus();
     });
+
+    personalityRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            appState.tutorPersonality = (e.target as HTMLInputElement).value;
+            saveTutorPersonality();
+        });
+    });
     
     // Global listener to hide menus
     document.addEventListener('click', (e) => {
@@ -1676,7 +1712,15 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
 
 
     // --- Initial Setup ---
+    const initializeSettings = () => {
+        const selectedPersonalityRadio = document.querySelector(`input[name="tutor-personality"][value="${appState.tutorPersonality}"]`) as HTMLInputElement;
+        if (selectedPersonalityRadio) {
+            selectedPersonalityRadio.checked = true;
+        }
+    };
+    
     showChatView();
     updateProgressBar();
     renderLearningGoals();
+    initializeSettings();
 });

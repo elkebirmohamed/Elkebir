@@ -676,12 +676,18 @@
         }
         
         /* History and Settings View Styles */
-        #history-view h2, #settings-view h2 {
+        #history-view h2, #settings-view h2, #settings-view h3 {
             font-size: 1.5em;
             color: var(--primary-color);
             border-bottom: 2px solid var(--border-color);
             padding-bottom: 10px;
             margin-bottom: 20px;
+        }
+        #settings-view h3 {
+            font-size: 1.2em;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-top: 30px;
         }
         #history-view ul {
             list-style: none;
@@ -717,6 +723,51 @@
             text-align: center;
             padding-top: 40px;
         }
+
+        /* Personality Selector Styles */
+        .personality-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 10px;
+        }
+        .personality-selector label {
+            display: block;
+            cursor: pointer;
+        }
+        .personality-selector input[type="radio"] {
+            appearance: none;
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .personality-card {
+            padding: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            transition: all 0.2s ease-in-out;
+            background-color: var(--secondary-color);
+        }
+        .personality-selector input[type="radio"]:checked + .personality-card {
+            border-color: var(--primary-color);
+            background-color: var(--ai-message-bg);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+        .personality-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: var(--text-color-dark);
+            display: block;
+            margin-bottom: 8px;
+        }
+        .personality-description {
+            font-size: 0.9em;
+            color: var(--sidebar-link-color);
+            margin: 0;
+            line-height: 1.4;
+        }
+
 
         /* Theme Switcher Styles */
         .theme-switcher {
@@ -1126,7 +1177,33 @@
         </div>
         <div id="settings-view" style="display: none; padding: 24px; padding-top: 60px; overflow-y: auto; flex-grow: 1;">
             <h2>Paramètres</h2>
-            <p>Page des paramètres en cours de construction.</p>
+            <p>Personnalisez votre expérience d'apprentissage avec MathIA.</p>
+
+            <h3>Personnalité du Tuteur</h3>
+            <p>Choisissez le style d'enseignement de MathIA pour les leçons et l'aide aux exercices.</p>
+            <div class="personality-selector">
+                <label>
+                    <input type="radio" name="tutor-personality" value="professeur-formel">
+                    <div class="personality-card">
+                        <span class="personality-title">🎓 Professeur Formel</span>
+                        <p class="personality-description">Explications précises, structurées et académiques.</p>
+                    </div>
+                </label>
+                <label>
+                    <input type="radio" name="tutor-personality" value="pair-amical" checked>
+                    <div class="personality-card">
+                        <span class="personality-title">👋 Pair Amical</span>
+                        <p class="personality-description">Approche collaborative, simple et dédramatisée.</p>
+                    </div>
+                </label>
+                <label>
+                    <input type="radio" name="tutor-personality" value="coach-encourageant">
+                    <div class="personality-card">
+                        <span class="personality-title">💪 Coach Encourageant</span>
+                        <p class="personality-description">Ton positif et motivant pour booster votre confiance.</p>
+                    </div>
+                </label>
+            </div>
         </div>
 
         <div class="input-wrapper">
