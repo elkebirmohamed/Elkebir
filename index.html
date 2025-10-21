@@ -673,7 +673,7 @@
         }
         
         /* History and Settings View Styles */
-        #history-view h2, #settings-view h2, #settings-view h3 {
+        #history-view h2, #settings-view h2, #settings-view h3, #exam-view h2 {
             font-size: 1.5em;
             color: var(--primary-color);
             border-bottom: 2px solid var(--border-color);
@@ -1086,6 +1086,119 @@
             background-color: rgba(220, 53, 69, 0.1);
         }
 
+        /* Exam Header Styles */
+        #exam-header {
+            padding: 10px 24px 10px 70px;
+            background-color: var(--ai-message-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .exam-header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        #exam-header h2 {
+            margin: 0;
+            font-size: 1.2em;
+            color: var(--primary-color);
+            border: none;
+            padding: 0;
+        }
+        .exam-info {
+            display: flex;
+            gap: 20px;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        #exam-timer {
+            color: var(--danger-color);
+        }
+
+        /* Exam View & Topic List Styles */
+        #exam-topic-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        .exam-topic-item {
+            display: block;
+            padding: 20px;
+            background-color: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-color-dark);
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.2s ease-in-out;
+        }
+        .exam-topic-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border-color: var(--primary-color);
+        }
+        body[data-theme="dark"] .exam-topic-item:hover {
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Exam Results Styles */
+        .exam-results-container {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            background-color: var(--secondary-color);
+        }
+        .exam-results-container h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+        .exam-results-container h4 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: var(--text-color-dark);
+        }
+        .exam-summary {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            margin: 16px 0;
+            font-size: 1.1em;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .summary-item strong {
+            display: block;
+            font-size: 1.3em;
+            margin-bottom: 4px;
+        }
+        .summary-item.pass strong { color: var(--success-color); }
+        .summary-item.fail strong { color: var(--danger-color); }
+        .exam-review-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+        .exam-review-item {
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+        .exam-review-item:first-child { border-top: none; padding-top: 0;}
+        .review-question { font-weight: 500; margin-bottom: 8px; }
+        .review-answer {
+            padding-left: 16px;
+            border-left: 3px solid;
+            margin: 4px 0;
+        }
+        .review-answer.user-correct { border-color: var(--success-color); background-color: rgba(40, 167, 69, 0.05); padding: 4px 0 4px 16px; }
+        .review-answer.user-incorrect { border-color: var(--danger-color); background-color: rgba(220, 53, 69, 0.05); padding: 4px 0 4px 16px; }
+        .review-answer.correct-answer { border-color: #f0ad4e; background-color: rgba(240, 173, 78, 0.05); padding: 4px 0 4px 16px; }
+
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -1150,6 +1263,7 @@
             <ul>
                 <li><a href="#" id="nav-chat" class="active">Accueil (Chat)</a></li>
                 <li><a href="#">Mon Profil</a></li>
+                <li><a href="#" id="nav-exam">Mode Examen</a></li>
                 <li><a href="#" id="nav-history">Historique des leçons</a></li>
                 <li><a href="#" id="nav-settings">Paramètres</a></li>
             </ul>
@@ -1166,11 +1280,23 @@
     <main id="chat-container">
         <button id="menu-toggle" title="Afficher/Masquer le menu" aria-label="Afficher/Masquer le menu">&#9776;</button>
         <button id="back-to-history-btn" title="Retour à l'historique" aria-label="Retour à l'historique">&larr; Historique</button>
+        <div id="exam-header" style="display: none;">
+            <div class="exam-header-content">
+                <h2 id="exam-topic"></h2>
+                <div class="exam-info">
+                    <span id="exam-progress"></span>
+                    <span id="exam-timer"></span>
+                </div>
+            </div>
+        </div>
         <div id="chat-window">
             <!-- Messages will be appended here -->
         </div>
         <div id="history-view" style="display: none; padding: 24px; padding-top: 60px; overflow-y: auto; flex-grow: 1;">
             <!-- History content will be generated here -->
+        </div>
+        <div id="exam-view" style="display: none; padding: 24px; padding-top: 60px; overflow-y: auto; flex-grow: 1;">
+            <!-- Exam topic selection will be generated here -->
         </div>
         <div id="settings-view" style="display: none; padding: 24px; padding-top: 60px; overflow-y: auto; flex-grow: 1;">
             <h2>Paramètres</h2>
@@ -1240,6 +1366,7 @@
                 <button class="suggestion-btn" data-value="Explique-moi le théorème de Pythagore">Explique-moi un concept</button>
                 <button class="suggestion-btn" data-value="Quiz sur les fonctions du second degré">Donne-moi un quiz</button>
                 <button class="suggestion-btn" data-value="Exercices sur le théorème de Pythagore">S'entraîner sur un sujet</button>
+                <button class="suggestion-btn" data-value="Je veux passer un examen">Passer un examen</button>
             </div>
         </div>
     </main>

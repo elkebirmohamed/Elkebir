@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 declare global {
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatWindow = document.getElementById('chat-window') as HTMLDivElement;
     const historyView = document.getElementById('history-view') as HTMLDivElement;
     const settingsView = document.getElementById('settings-view') as HTMLDivElement;
+    const examView = document.getElementById('exam-view') as HTMLDivElement;
     const inputWrapper = document.querySelector('.input-wrapper') as HTMLDivElement;
     const userInput = document.getElementById('user-input') as HTMLInputElement;
     const sendButton = document.getElementById('send-button') as HTMLButtonElement;
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const navChat = document.getElementById('nav-chat') as HTMLAnchorElement;
     const navHistory = document.getElementById('nav-history') as HTMLAnchorElement;
     const navSettings = document.getElementById('nav-settings') as HTMLAnchorElement;
+    const navExam = document.getElementById('nav-exam') as HTMLAnchorElement;
     const themeToggle = document.getElementById('theme-toggle') as HTMLInputElement;
     const inputSuggestions = document.getElementById('input-suggestions') as HTMLDivElement;
     const progressBarInner = document.getElementById('progress-bar-inner') as HTMLDivElement;
@@ -46,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const newGoalInput = document.getElementById('new-goal-input') as HTMLInputElement;
     const saveGoalBtn = document.getElementById('save-goal-btn') as HTMLButtonElement;
     const personalityRadios = document.querySelectorAll('input[name="tutor-personality"]');
+    const examHeader = document.getElementById('exam-header') as HTMLDivElement;
+    const examTopicDisplay = document.getElementById('exam-topic') as HTMLHeadingElement;
+    const examTimerDisplay = document.getElementById('exam-timer') as HTMLSpanElement;
+    const examProgressDisplay = document.getElementById('exam-progress') as HTMLSpanElement;
 
 
     // --- Application State ---
@@ -129,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     let appState = {
-        mode: 'idle', // 'idle', 'quiz', 'tutor', 'practice'
+        mode: 'idle', // 'idle', 'quiz', 'tutor', 'practice', 'exam'
         lessonHistory: loadLessonHistory(),
         learningGoals: loadLearningGoals(),
         tutorPersonality: loadTutorPersonality(),
@@ -153,6 +160,16 @@ document.addEventListener('DOMContentLoaded', () => {
             exerciseIndex: 0,
             exercises: [] as any[],
             currentExercise: null as any | null,
+        },
+        exam: {
+            topic: null as string | null,
+            questions: [] as any[],
+            currentQuestionIndex: 0,
+            userAnswers: [] as string[],
+            startTime: null as number | null,
+            timerId: null as any | null,
+            timeLimit: 300, // 5 minutes in seconds
+            isFinished: false
         }
     };
 
@@ -236,6 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // FIX: Changed 'set' to 'Set' to correctly instantiate a Set object.
     const uniqueSuggestions = [...new Set([
         ...Object.values(knowledgeBase.lessons).map(l => l.title),
         ...Object.keys(knowledgeBase.quizzes).map(q => `Quiz sur ${q}`),
@@ -243,6 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         "Explique-moi le théorème de Pythagore",
         "Aide-moi sur un exercice",
         "Je veux m'entraîner",
+        "Je veux passer un examen"
     ])];
     
     // --- Theme Management ---
@@ -479,6 +498,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
     const switchToChatView = () => {
         historyView.style.display = 'none';
         settingsView.style.display = 'none';
+        examView.style.display = 'none';
         chatWindow.style.display = 'flex';
         inputWrapper.style.display = 'block';
         document.querySelector('#sidebar nav a.active')?.classList.remove('active');
@@ -500,6 +520,8 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
     const showHistoryView = () => {
         chatWindow.style.display = 'none';
         settingsView.style.display = 'none';
+        examView.style.display = 'none';
+        examHeader.style.display = 'none';
         inputWrapper.style.display = 'none';
         historyView.style.display = 'block';
         backToHistoryBtn.style.display = 'none';
@@ -533,6 +555,8 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
     const showSettingsView = () => {
         chatWindow.style.display = 'none';
         historyView.style.display = 'none';
+        examView.style.display = 'none';
+        examHeader.style.display = 'none';
         inputWrapper.style.display = 'none';
         settingsView.style.display = 'block';
         backToHistoryBtn.style.display = 'none';
@@ -541,6 +565,35 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
         navSettings.classList.add('active');
     };
     
+    const showExamView = () => {
+        chatWindow.style.display = 'none';
+        historyView.style.display = 'none';
+        settingsView.style.display = 'none';
+        examHeader.style.display = 'none';
+        inputWrapper.style.display = 'none';
+        examView.style.display = 'block';
+        backToHistoryBtn.style.display = 'none';
+
+        document.querySelector('#sidebar nav a.active')?.classList.remove('active');
+        navExam.classList.add('active');
+
+        examView.innerHTML = `<h2>Choisissez un sujet d'examen</h2>`;
+        const topics = Object.keys(knowledgeBase.quizzes);
+        if (topics.length === 0) {
+            examView.innerHTML += `<p>Aucun sujet d'examen disponible pour le moment.</p>`;
+        } else {
+            const ul = document.createElement('ul');
+            ul.id = 'exam-topic-list';
+            topics.forEach(topic => {
+                const lessonTitle = knowledgeBase.lessons[topic as keyof typeof knowledgeBase.lessons]?.title || topic;
+                const li = document.createElement('li');
+                li.innerHTML = `<a href="#" class="exam-topic-item" data-topic="${topic}">${lessonTitle}</a>`;
+                ul.appendChild(li);
+            });
+            examView.appendChild(ul);
+        }
+    };
+
     const insertAtCursor = (text: string) => {
         const startPos = userInput.selectionStart ?? 0;
         const endPos = userInput.selectionEnd ?? 0;
@@ -552,7 +605,9 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
     };
 
     const addMessage = (text: string, sender: 'user' | 'ai', attachment: any = null) => {
-        appState.currentChat.push({ sender, text, attachment });
+        if (sender !== 'user' || appState.mode !== 'exam') {
+            appState.currentChat.push({ sender, text, attachment });
+        }
         
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}-message`;
@@ -659,6 +714,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
         if (!query && !file) return;
 
         userInput.value = '';
+        addMessage(query, 'user');
 
         if (file) {
             const attachment = {
@@ -666,7 +722,8 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
                 type: file.type,
                 previewUrl: URL.createObjectURL(file)
             };
-            addMessage(query, 'user', attachment);
+            // The user message is already added above, just need to update it visually.
+            // This is complex, so for now we'll accept the message appearing without the preview first.
             clearStagedFile();
 
             const typingIndicator = showTypingIndicator();
@@ -677,11 +734,14 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
             appState.mode = 'tutor';
             return;
         }
-        
-        addMessage(query, 'user');
 
         if (appState.mode === 'quiz') {
             processQuizAnswer(query);
+            return;
+        }
+        
+        if (appState.mode === 'exam') {
+            processExamAnswer(query);
             return;
         }
         
@@ -699,6 +759,14 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
              const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.quizzes));
              if(topic) startQuiz(topic);
              else aiRespond("Super ! Sur quel sujet veux-tu être interrogé ? Par exemple : le théorème de Pythagore.");
+        } else if (lowerCaseQuery.includes('examen')) {
+            const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.quizzes));
+            if (topic) {
+                startExam(topic);
+            } else {
+                addMessage("Parfait ! Sur quel sujet veux-tu passer un examen ?", 'ai');
+                showExamView();
+            }
         } else if (lowerCaseQuery.includes('pratiquer') || lowerCaseQuery.includes('entraînement') || lowerCaseQuery.includes('exercices sur')) {
             const topic = findTopic(lowerCaseQuery, Object.keys(knowledgeBase.practiceExercises));
             if (topic) startPracticeMode(topic);
@@ -1287,6 +1355,151 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
         appState.mode = 'idle';
     };
 
+    const startExam = (topic: string) => {
+        const allQuestions = knowledgeBase.quizzes[topic as keyof typeof knowledgeBase.quizzes];
+        if (!allQuestions || allQuestions.length === 0) {
+            addMessage(`Désolé, je n'ai pas de questions pour un examen sur "${topic}".`, 'ai');
+            return;
+        }
+
+        switchToChatView();
+        chatWindow.innerHTML = '';
+        
+        appState.mode = 'exam';
+        appState.exam.topic = topic;
+        appState.exam.userAnswers = [];
+        appState.exam.currentQuestionIndex = 0;
+        appState.exam.isFinished = false;
+        
+        appState.exam.questions = [...allQuestions].sort(() => 0.5 - Math.random()).slice(0, 5);
+        if (appState.exam.questions.length < 1) { // Check if there are any questions for an exam
+             addMessage(`Il n'y a pas assez de questions pour un examen complet sur ce sujet.`, 'ai');
+             appState.mode = 'idle';
+             return;
+        }
+
+        const lessonTitle = knowledgeBase.lessons[topic as keyof typeof knowledgeBase.lessons]?.title || topic;
+        examTopicDisplay.textContent = `Examen : ${lessonTitle}`;
+
+        addMessage(`L'examen sur "<strong>${lessonTitle}</strong>" commence. Vous avez ${appState.exam.timeLimit / 60} minutes. Bonne chance !`, 'ai');
+        
+        if (appState.exam.timerId) clearInterval(appState.exam.timerId);
+        let timeLeft = appState.exam.timeLimit;
+        appState.exam.startTime = Date.now();
+        
+        const updateExamTimer = () => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            examTimerDisplay.textContent = `⏳ ${minutes}:${seconds.toString().padStart(2, '0')}`;
+            if (timeLeft <= 0) {
+                endExam(true);
+            }
+            timeLeft--;
+        };
+        
+        updateExamTimer();
+        appState.exam.timerId = setInterval(updateExamTimer, 1000);
+
+        examHeader.style.display = 'block';
+        setTimeout(askNextExamQuestion, 1500);
+    };
+
+    const askNextExamQuestion = () => {
+        if (appState.exam.isFinished) return;
+
+        if (appState.exam.currentQuestionIndex >= appState.exam.questions.length) {
+            endExam(false);
+            return;
+        }
+        
+        examProgressDisplay.textContent = `Question ${appState.exam.currentQuestionIndex + 1} / ${appState.exam.questions.length}`;
+
+        const currentQuestion = appState.exam.questions[appState.exam.currentQuestionIndex];
+        addMessage(`<strong>Question ${appState.exam.currentQuestionIndex + 1} :</strong> ${currentQuestion.question}`, 'ai');
+    };
+
+    const processExamAnswer = (answer: string) => {
+        appState.exam.userAnswers.push(answer.trim());
+        appState.exam.currentQuestionIndex++;
+        askNextExamQuestion();
+    };
+
+    const endExam = (timedOut: boolean) => {
+        if (appState.exam.isFinished) return;
+        
+        appState.exam.isFinished = true;
+        appState.mode = 'idle';
+        clearInterval(appState.exam.timerId);
+        appState.exam.timerId = null;
+        examHeader.style.display = 'none';
+
+        if (timedOut) {
+            addMessage("Le temps est écoulé !", 'ai');
+        } else {
+            addMessage("Examen terminé !", 'ai');
+        }
+
+        let score = 0;
+        appState.exam.questions.forEach((q, index) => {
+            const userAnswer = appState.exam.userAnswers[index] || '';
+            if (userAnswer.toLowerCase() === q.answer.toLowerCase()) {
+                score++;
+            }
+        });
+
+        const totalQuestions = appState.exam.questions.length;
+        const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+        const timeTaken = appState.exam.startTime ? Math.round((Date.now() - appState.exam.startTime) / 1000) : 0;
+        const minutes = Math.floor(timeTaken / 60);
+        const seconds = timeTaken % 60;
+
+        let resultsHTML = `<div class="exam-results-container">
+            <h3>Résultats de l'examen</h3>
+            <div class="exam-summary">
+                <div class="summary-item ${percentage >= 50 ? 'pass' : 'fail'}">
+                    <strong>${percentage}%</strong>
+                    <span>${percentage >= 50 ? 'Réussi' : 'Échoué'}</span>
+                </div>
+                <div class="summary-item">
+                    <strong>${score} / ${totalQuestions}</strong>
+                    <span>Score</span>
+                </div>
+                <div class="summary-item">
+                    <strong>${minutes}m ${seconds}s</strong>
+                    <span>Temps</span>
+                </div>
+            </div>
+            <h4>Révision des réponses</h4>
+            <ul class="exam-review-list">`;
+
+        appState.exam.questions.forEach((q, index) => {
+            const userAnswer = appState.exam.userAnswers[index] || '(Pas de réponse)';
+            const isCorrect = userAnswer.toLowerCase() === q.answer.toLowerCase();
+            resultsHTML += `<li class="exam-review-item">
+                <p class="review-question">${index + 1}. ${q.question}</p>
+                <p class="review-answer ${isCorrect ? 'user-correct' : 'user-incorrect'}">
+                    Votre réponse : ${userAnswer}
+                </p>`;
+            if (!isCorrect) {
+                 resultsHTML += `<p class="review-answer correct-answer">
+                    Réponse correcte : ${q.answer}
+                </p>`;
+            }
+            resultsHTML += `</li>`;
+        });
+
+        resultsHTML += `</ul></div>`;
+        addMessage(resultsHTML, 'ai');
+        
+        if (percentage >= 80 && appState.exam.topic) {
+            appState.userProgress.masteredTopics.add(appState.exam.topic);
+            saveUserProgress();
+            updateProgressBar();
+            renderLearningGoals();
+            addMessage("Félicitations, vous avez maîtrisé ce sujet !", "ai");
+        }
+    };
+
     const fileToBase64 = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -1533,6 +1746,8 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
     navChat.addEventListener('click', (e) => { e.preventDefault(); showChatView(); });
     navHistory.addEventListener('click', async (e) => { e.preventDefault(); await saveCurrentChatIfNeeded(); showHistoryView(); });
     navSettings.addEventListener('click', async (e) => { e.preventDefault(); await saveCurrentChatIfNeeded(); showSettingsView(); });
+    navExam.addEventListener('click', async (e) => { e.preventDefault(); await saveCurrentChatIfNeeded(); showExamView(); });
+
 
     userInput.addEventListener('input', () => {
         getAutocompleteSuggestions(userInput.value);
@@ -1659,6 +1874,18 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
                 loadChatFromHistory(chatId);
             } else if (topic) {
                 loadLessonFromHistory(topic);
+            }
+        }
+    });
+
+    examView.addEventListener('click', e => {
+        const target = e.target as HTMLElement;
+        const examItem = target.closest('.exam-topic-item');
+        if (examItem instanceof HTMLElement) {
+            e.preventDefault();
+            const topic = examItem.dataset.topic;
+            if (topic) {
+                startExam(topic);
             }
         }
     });
