@@ -253,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // FIX: Changed 'set' to 'Set' to correctly instantiate a Set object.
     const uniqueSuggestions = [...new Set([
         ...Object.values(knowledgeBase.lessons).map(l => l.title),
         ...Object.keys(knowledgeBase.quizzes).map(q => `Quiz sur ${q}`),
@@ -1564,7 +1563,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
     };
     
     const getAutocompleteSuggestions = (query: string) => {
-         if (!query) {
+        if (!query) {
             inputSuggestions.style.display = 'none';
             return;
         }
@@ -1572,8 +1571,14 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
         const suggestions = uniqueSuggestions.filter(s => s.toLowerCase().includes(lowerQuery));
 
         if (suggestions.length > 0) {
+            const escapeRegExp = (string: string) => {
+                // $& means the whole matched string
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            };
+            const safeQuery = escapeRegExp(query);
+            
             inputSuggestions.innerHTML = suggestions.map(s => {
-                const regex = new RegExp(`(${query})`, 'gi');
+                const regex = new RegExp(`(${safeQuery})`, 'gi');
                 const highlighted = s.replace(regex, '<strong>$1</strong>');
                 return `<div class="suggestion-item" data-value="${s}">${highlighted}</div>`;
             }).join('');
