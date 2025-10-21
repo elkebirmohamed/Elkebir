@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const newGoalInput = document.getElementById('new-goal-input') as HTMLInputElement;
     const saveGoalBtn = document.getElementById('save-goal-btn') as HTMLButtonElement;
     const personalityRadios = document.querySelectorAll('input[name="tutor-personality"]');
+    const languageSelector = document.getElementById('language-selector') as HTMLSelectElement;
     const examHeader = document.getElementById('exam-header') as HTMLDivElement;
     const examTopicDisplay = document.getElementById('exam-topic') as HTMLHeadingElement;
     const examTimerDisplay = document.getElementById('exam-timer') as HTMLSpanElement;
@@ -134,12 +135,21 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('tutorPersonality', appState.tutorPersonality);
     };
 
+    const loadCurrentLanguage = (): string => {
+        return localStorage.getItem('currentLanguage') || navigator.language || 'fr-FR';
+    };
+
+    const saveCurrentLanguage = () => {
+        localStorage.setItem('currentLanguage', appState.currentLanguage);
+    };
+
 
     let appState = {
         mode: 'idle', // 'idle', 'quiz', 'tutor', 'practice', 'exam'
         lessonHistory: loadLessonHistory(),
         learningGoals: loadLearningGoals(),
         tutorPersonality: loadTutorPersonality(),
+        currentLanguage: loadCurrentLanguage(),
         stagedFile: null as File | null,
         currentChat: [] as { sender: 'user' | 'ai'; text: string; attachment?: any }[],
         isViewingHistory: false,
@@ -285,13 +295,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
-        recognition.lang = 'fr-FR';
+        recognition.lang = appState.currentLanguage; // Use initial language
         recognition.interimResults = true;
         recognition.continuous = false;
 
         micButton.style.display = 'flex';
 
         micButton.addEventListener('click', () => {
+            recognition.lang = appState.currentLanguage; // Update language before starting
+
             if (isListening) {
                 recognition.stop();
             } else {
@@ -336,43 +348,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const getSystemInstruction = (mode: 'lesson' | 'tutor' | 'practice'): string => {
         const personalityInstructions = {
-            'professeur-formel': "Ton rôle est celui d'un professeur de mathématiques formel. Ton approche est académique, précise et structurée. Utilise un langage soutenu et des explications détaillées. Guide l'élève avec rigueur et logique.",
-            'pair-amical': "Ton rôle est celui d'un pair bienveillant et amical. Adresse-toi à l'élève simplement, utilise des analogies et des encouragements. Ton but est de dédramatiser les maths et de rendre l'apprentissage collaboratif.",
-            'coach-encourageant': "Ton rôle est celui d'un coach dynamique et motivant. Ton ton est positif et plein d'énergie. Célèbre les petites victoires, encourage l'élève à persévérer et utilise des métaphores pour booster sa confiance."
+            'professeur-formel': "Ton approche est académique, précise et structurée. Utilise un langage soutenu et des explications détaillées. Guide l'élève avec rigueur et logique.",
+            'pair-amical': "Adresse-toi à l'élève simplement, utilise des analogies et des encouragements. Ton but est de dédramatiser les maths et de rendre l'apprentissage collaboratif.",
+            'coach-encourageant': "Ton ton est positif et plein d'énergie. Célèbre les petites victoires, encourage l'élève à persévérer et utilise des métaphores pour booster sa confiance."
         };
-        
-        const symbolRule = "\n\n**Règle sur les symboles (TRÈS IMPORTANT) :** N'utilise JAMAIS de code de formatage comme le LaTeX (par exemple `\\le`, `\\ge`). Utilise directement les caractères universels (Unicode) comme `≤`, `≥`, `≠`, `×`, `÷`, `√`.";
+        const personalityInstruction = personalityInstructions[appState.tutorPersonality as keyof typeof personalityInstructions] || personalityInstructions['pair-amical'];
     
-        const personalityPrefix = personalityInstructions[appState.tutorPersonality as keyof typeof personalityInstructions] || personalityInstructions['pair-amical'];
+        const basePrompt = `
+Tu es MathIA, un tuteur en mathématiques expert, pédagogue et multilingue.
+${personalityInstruction}
+
+Ta mission est de répondre à la question de l'utilisateur en respectant scrupuleusement les règles suivantes :
+
+### RÈGLES DE MISSION ###
+
+1.  **Langue de Réponse (RÈGLE CRUCIALE) :**
+    *   La langue d'interaction choisie par l'utilisateur est : \`${appState.currentLanguage}\`.
+    *   Tu dois **impérativement** rédiger l'intégralité de ta réponse dans cette langue (explications, salutations, etc.).
+
+2.  **Intégrité des Mathématiques (RÈGLE CRUCIALE) :**
+    *   Ne traduis **JAMAIS** les formules, les notations ou les variables mathématiques. Elles sont universelles.
+    *   Par exemple, l'équation \`x² + y² = r²\` reste identique en français, en anglais ou en arabe. De même pour les fonctions comme \`sin(x)\` ou les notations comme \`f(x)\`.
+
+3.  **Guide de Style :**
+    *   **Structure :** Utilise des titres (\`##\`, \`###\`) et des listes (\`*\`) pour rendre la réponse claire et aérée.
+    *   **Mise en Forme :** Mets les termes clés en **gras**. Encadre les expressions mathématiques courtes avec des \`backticks\` (ex: \`l'équation est \`2x = 4\`\`).
+    *   **Symboles :** N'utilise **JAMAIS** de code LaTeX (\`\\le\`). Utilise directement les caractères universels (\`≤\`, \`≥\`, \`≠\`, \`×\`).
+    *   **Clarté :** Rédige des paragraphes courts et laisse des lignes vides pour espacer le contenu.
+`;
     
         switch (mode) {
             case 'tutor':
-                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix} Ton but est de guider les élèves vers la solution sans la leur donner. Utilise la méthode socratique, en posant des questions pour stimuler leur réflexion.` + symbolRule;
+                return `${basePrompt}\n\n### OBJECTIF SPÉCIFIQUE ###\nTon but principal est de guider les élèves vers la solution sans la leur donner. Utilise la méthode socratique, en posant des questions pour stimuler leur réflexion.`;
             case 'practice':
-                return `Tu es MathIA, un tuteur de maths qui évalue les réponses des exercices. ${personalityPrefix} Sois positif et guide l'élève.` + symbolRule;
+                return `${basePrompt}\n\n### OBJECTIF SPÉCIFIQUE ###\nTon but est d'évaluer les réponses des exercices. Sois positif et encourageant. Si la réponse est incorrecte, guide l'élève avec un indice au lieu de donner la solution directement.`;
             case 'lesson':
-                return `Tu es MathIA, un tuteur en mathématiques expert, pédagogue et très clair. ${personalityPrefix}
-
-Ta mission est de fournir des leçons complètes sur le sujet demandé par l'utilisateur. Chaque réponse que tu fournis DOIT suivre impérativement le guide de style suivant pour garantir une lisibilité et un rendu parfaits dans l'application.
+                return `${basePrompt}
+### INSTRUCTIONS SPÉCIFIQUES POUR LE MODE LEÇON ###
+Ta mission est de fournir des leçons complètes et structurées sur le sujet demandé. Pour garantir un rendu parfait dans l'application, tu dois formater ta réponse en utilisant impérativement le **GUIDE DE STYLE HTML** ci-dessous, qui a priorité sur le guide de style général en Markdown.
 
 ### GUIDE DE STYLE HTML OBLIGATOIRE ###
-
 1.  **Structure Générale :**
-    *   Commence toujours par un titre principal clair et pertinent, en utilisant une balise \`<h2>\` (ex: \`<h2>Leçon Complète sur les Inéquations</h2>\`).
-    *   Divise la leçon en sections logiques avec des sous-titres, en utilisant des balises \`<h3>\` (ex: \`<h3>1. Qu'est-ce qu'une inéquation ?</h3>\`).
+    *   Commence toujours par un titre principal clair avec une balise \`<h2>\` (ex: \`<h2>Leçon sur les Inéquations</h2>\`).
+    *   Divise la leçon en sections logiques avec des sous-titres en \`<h3>\` (ex: \`<h3>1. Qu'est-ce qu'une inéquation ?</h3>\`).
 
 2.  **Mise en Forme du Texte :**
-    *   **Termes Clés :** Mets les définitions et les mots importants en gras avec la balise \`<strong>\` (ex: \`une <strong>inéquation</strong> est une relation d'<strong>inégalité</strong>...\`).
-    *   **Listes :** Utilise des listes à puces (\`<ul>\` et \`<li>\`) pour énumérer des points, comme les différents symboles ou les étapes d'une méthode.
-    *   **Expressions Mathématiques :** Utilise directement les caractères Unicode pour les symboles mathématiques (ex: \`√\`, \`≤\`, \`≥\`). N'utilise pas la syntaxe LaTeX comme \`\\( ... \\)\`.
+    *   **Termes Clés :** Mets les définitions et mots importants en gras avec \`<strong>\` (ex: \`une <strong>inéquation</strong>...\`).
+    *   **Expressions Mathématiques :** Encadre les expressions mathématiques et les formules dans des balises \`<code>\` pour les mettre en évidence (ex: \`<code>a² + b² = c²</code>\`).
+    *   **Listes :** Utilise \`<ul>\` et \`<li>\` pour les énumérations.
+    *   **Paragraphes :** Encadre chaque paragraphe dans une balise \`<p>\`. Rédige des paragraphes courts (2-3 phrases).
 
-3.  **Aération et Lisibilité (LE PLUS IMPORTANT) :**
-    *   Rédige des paragraphes courts (2-3 phrases maximum) et encadre chaque paragraphe dans une balise \`<p>\`.
-    *   Utilise des exemples concrets pour chaque concept expliqué.
-
-En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le sujet demandé par l'utilisateur.` + symbolRule;
+3.  **Exemples :** Utilise des exemples concrets pour chaque concept expliqué.`;
             default:
-                return `Tu es MathIA, un tuteur de mathématiques. ${personalityPrefix}` + symbolRule;
+                return basePrompt;
         }
     };
     
@@ -1017,7 +1045,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
             <h2>${lesson.title}</h2>
             ${interactiveHTML}
             <p><strong>Définition :</strong> ${lesson.definition}</p>
-            <p><strong>Formule :</strong> ${lesson.formula}</p>
+            <p><strong>Formule :</strong> <code>${lesson.formula}</code></p>
             <p><strong>Exemple :</strong> ${lesson.example}</p>
             <p><strong>Utilisation :</strong> ${lesson.usage}</p>
             <div class="lesson-actions">${goalButtonHTML}</div>
@@ -1909,6 +1937,11 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
             saveTutorPersonality();
         });
     });
+
+    languageSelector.addEventListener('change', () => {
+        appState.currentLanguage = languageSelector.value;
+        saveCurrentLanguage();
+    });
     
     // Global listener to hide menus
     document.addEventListener('click', (e) => {
@@ -1936,6 +1969,7 @@ En suivant STRICTEMENT ce guide de style, donne-moi une leçon complète sur le 
         if (selectedPersonalityRadio) {
             selectedPersonalityRadio.checked = true;
         }
+        languageSelector.value = appState.currentLanguage;
     };
     
     showChatView();

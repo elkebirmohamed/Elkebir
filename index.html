@@ -720,6 +720,26 @@
             text-align: center;
             padding-top: 40px;
         }
+        
+        /* Settings View Specifics */
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 10px;
+        }
+        .setting-item label {
+            font-weight: 500;
+            color: var(--text-color-dark);
+        }
+        #language-selector {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-color-dark);
+            font-size: 1em;
+        }
 
         /* Personality Selector Styles */
         .personality-selector {
@@ -1301,6 +1321,19 @@
         <div id="settings-view" style="display: none; padding: 24px; padding-top: 60px; overflow-y: auto; flex-grow: 1;">
             <h2>Paramètres</h2>
             <p>Personnalisez votre expérience d'apprentissage avec MathIA.</p>
+
+            <h3>Langue de l'Interaction</h3>
+            <p>Choisissez la langue pour la reconnaissance vocale et les réponses de MathIA.</p>
+            <div class="setting-item">
+                <label for="language-selector">Langue :</label>
+                <select id="language-selector">
+                    <option value="fr-FR">Français</option>
+                    <option value="en-US">English</option>
+                    <option value="es-ES">Español</option>
+                    <option value="ar-SA">العربية</option>
+                    <option value="de-DE">Deutsch</option>
+                </select>
+            </div>
 
             <h3>Personnalité du Tuteur</h3>
             <p>Choisissez le style d'enseignement de MathIA pour les leçons et l'aide aux exercices.</p>
